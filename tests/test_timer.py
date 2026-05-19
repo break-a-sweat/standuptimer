@@ -108,3 +108,29 @@ def test_dismiss_from_finished_returns_to_idle_with_full_remaining():
     t.dismiss()
     assert t.state == State.IDLE
     assert t.remaining_seconds == 10
+
+
+def test_tick_after_finished_stays_at_zero_and_finished():
+    """Calling tick() repeatedly after FINISHED must not underflow or change state."""
+    t = TimerState(duration_seconds=2)
+    t.start()
+    t.tick()
+    t.tick()
+    assert t.state == State.FINISHED
+    assert t.remaining_seconds == 0
+    t.tick()
+    t.tick()
+    assert t.state == State.FINISHED
+    assert t.remaining_seconds == 0
+
+
+def test_start_from_finished_resets_remaining_and_runs():
+    """start() from FINISHED restarts a fresh countdown (re-anchors remaining)."""
+    t = TimerState(duration_seconds=5)
+    t.start()
+    for _ in range(5):
+        t.tick()
+    assert t.state == State.FINISHED
+    t.start()
+    assert t.state == State.RUNNING
+    assert t.remaining_seconds == 5
