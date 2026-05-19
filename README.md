@@ -12,6 +12,8 @@ A lightweight Windows tray-icon countdown timer. When the countdown finishes, a 
 
 ## Install (development)
 
+Requires Python 3.10 or newer (uses PEP 604 union syntax).
+
 ```
 python -m venv .venv
 .venv\Scripts\activate
