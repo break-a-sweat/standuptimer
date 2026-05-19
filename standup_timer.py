@@ -3,6 +3,7 @@ import os
 import sys
 import threading
 import time
+import ctypes
 import tkinter as tk
 from pathlib import Path
 
@@ -227,8 +228,7 @@ class StandUpApp:
     def run(self):
         # DPI awareness for accurate overlay positioning
         try:
-            ctypes_user32 = __import__("ctypes").windll.shcore
-            ctypes_user32.SetProcessDpiAwareness(1)
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
         except Exception:
             pass
 
