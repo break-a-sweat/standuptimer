@@ -75,8 +75,12 @@ def show(on_dismiss: Callable[[], None], duration_minutes: int, parent: tk.Tk) -
     )
 
     def dismiss(_event=None):
-        on_dismiss()
-        win.destroy()
+        if not win.winfo_exists():
+            return
+        try:
+            on_dismiss()
+        finally:
+            win.destroy()
 
     canvas.bind("<Button-1>", dismiss)
     win.bind("<Button-1>", dismiss)
