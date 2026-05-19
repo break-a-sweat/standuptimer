@@ -67,7 +67,7 @@ class StandUpApp:
                 autostart.disable()
                 self.config.auto_start = False
                 self.config.save()
-            except OSError as e:
+            except OSError:
                 logging.exception("Failed to disable autostart")
                 self._notify("無法設定開機自啟")
         else:
@@ -75,7 +75,7 @@ class StandUpApp:
                 autostart.enable(exe_path=self._exe_path())
                 self.config.auto_start = True
                 self.config.save()
-            except OSError as e:
+            except OSError:
                 logging.exception("Failed to enable autostart")
                 self._notify("無法設定開機自啟")
         self._refresh_tray()
