@@ -1,42 +1,46 @@
 from PIL import Image
 
-from icon import make_icon
+from icon import make_icon, SIZE
 from timer import State
 
-# Sample coordinate: (7, 32) is inside the outer filled circle (4,4)-(60,60)
-# but outside the inner white face ellipse (10,10)-(54,54), so it lands on
-# the body colour rather than the white clock face or crossing hands.
-_SAMPLE = (7, 32)
+
+# Top-center pixel: inside the rounded body rectangle, above the centered label.
+# Reliably lands on the state colour.
+_BG_SAMPLE = (32, 6)
 
 
 def test_make_icon_returns_image_64x64():
-    img = make_icon(State.IDLE)
+    img = make_icon(State.IDLE, "30:00")
     assert isinstance(img, Image.Image)
-    assert img.size == (64, 64)
+    assert img.size == (SIZE, SIZE)
 
 
-def test_make_icon_idle_uses_grey():
-    img = make_icon(State.IDLE)
-    # Sample a pixel on the body — should be the body colour (grey-ish)
-    r, g, b, _ = img.convert("RGBA").getpixel(_SAMPLE)
-    assert r == g == b  # grey has equal channels
-    assert 100 < r < 200
+def test_make_icon_running_background_distinct_from_idle():
+    p_idle = make_icon(State.IDLE, "30:00").getpixel(_BG_SAMPLE)
+    p_running = make_icon(State.RUNNING, "30:00").getpixel(_BG_SAMPLE)
+    assert p_running != p_idle
 
 
-def test_make_icon_running_is_distinct_from_idle():
-    idle_pixel = make_icon(State.IDLE).convert("RGBA").getpixel(_SAMPLE)
-    running_pixel = make_icon(State.RUNNING).convert("RGBA").getpixel(_SAMPLE)
-    assert running_pixel != idle_pixel
+def test_make_icon_paused_background_distinct_from_running():
+    p_paused = make_icon(State.PAUSED, "30:00").getpixel(_BG_SAMPLE)
+    p_running = make_icon(State.RUNNING, "30:00").getpixel(_BG_SAMPLE)
+    assert p_paused != p_running
 
 
-def test_make_icon_paused_is_distinct_from_running():
-    paused_pixel = make_icon(State.PAUSED).convert("RGBA").getpixel(_SAMPLE)
-    running_pixel = make_icon(State.RUNNING).convert("RGBA").getpixel(_SAMPLE)
-    assert paused_pixel != running_pixel
+def test_make_icon_finished_background_matches_idle():
+    p_idle = make_icon(State.IDLE, "30:00").getpixel(_BG_SAMPLE)
+    p_finished = make_icon(State.FINISHED, "30:00").getpixel(_BG_SAMPLE)
+    assert p_idle == p_finished
 
 
-def test_make_icon_finished_matches_idle():
-    """FINISHED state shows the same icon as IDLE per spec."""
-    idle_pixel = make_icon(State.IDLE).convert("RGBA").getpixel(_SAMPLE)
-    finished_pixel = make_icon(State.FINISHED).convert("RGBA").getpixel(_SAMPLE)
-    assert idle_pixel == finished_pixel
+def test_make_icon_different_labels_produce_different_images():
+    """Different label text must actually be rendered onto the image."""
+    a = make_icon(State.RUNNING, "12:34")
+    b = make_icon(State.RUNNING, "56:78")
+    assert list(a.getdata()) != list(b.getdata())
+
+
+def test_make_icon_same_label_same_state_is_deterministic():
+    a = make_icon(State.RUNNING, "12:34")
+    b = make_icon(State.RUNNING, "12:34")
+    assert list(a.getdata()) == list(b.getdata())

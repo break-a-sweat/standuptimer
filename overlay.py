@@ -28,8 +28,11 @@ def _compute_position(work_area: tuple[int, int, int, int]) -> tuple[int, int]:
     return x, y
 
 
-def show(on_dismiss: Callable[[], None], duration_minutes: int, parent: tk.Tk) -> tk.Toplevel:
+def show(on_dismiss: Callable[[], None], secondary_text: str, parent: tk.Tk) -> tk.Toplevel:
     """Show the reminder overlay. Calls on_dismiss() when clicked, then destroys.
+
+    `secondary_text` is the second line under the main heading — the caller
+    formats it (e.g. "已坐 30 分鐘" or "已坐 00:05").
 
     Returns the Toplevel so callers can track / destroy it externally (e.g. if a
     new alert fires before the previous overlay was dismissed).
@@ -53,7 +56,7 @@ def show(on_dismiss: Callable[[], None], duration_minutes: int, parent: tk.Tk) -
     canvas.pack()
 
     primary = "站起來動一動"
-    secondary = f"已坐 {duration_minutes} 分鐘"
+    secondary = secondary_text
 
     # Shadow (drawn first, offset by +2,+2 in dark grey)
     canvas.create_text(

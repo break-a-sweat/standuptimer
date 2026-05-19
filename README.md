@@ -4,9 +4,9 @@ A lightweight Windows tray-icon countdown timer. When the countdown finishes, a 
 
 ## Features
 
-- System tray icon with right-click menu
-- Preset durations (25 / 30 / 45 / 60 min) plus custom
-- Start / Pause / Reset controls
+- System tray icon **displays the remaining time as `MM:SS` text**
+- Right-click menu with Start / Pause / Reset
+- Preset durations (25 / 30 / 45 / 60 min) plus custom (down to 1 second)
 - Click-to-dismiss reminder overlay (no auto-disappear)
 - Optional "Start with Windows" toggle (per-user, no admin needed)
 
@@ -22,6 +22,10 @@ pip install -r requirements.txt
 
 ## Run
 
+Double-click `start.pyw` — Windows launches it with `pythonw.exe` (no console window).
+
+You can also run from a terminal:
+
 ```
 python standup_timer.py
 ```
@@ -36,22 +40,13 @@ pytest -v
 
 The autostart tests touch the real `HKCU` registry under a uniquely-named test value, so they require Windows. They skip cleanly on other platforms.
 
-## Package as a single .exe
-
-```
-pip install pyinstaller
-pyinstaller --noconsole --onefile --name StandUpTimer standup_timer.py
-```
-
-The exe lands in `dist\StandUpTimer.exe`. Place it anywhere; the registry auto-start entry uses its absolute path.
-
 ## Config
 
 Settings live at `%APPDATA%\standuptimer\config.json`. The file is created on first run and rewritten whenever you change settings from the tray menu.
 
 ```json
 {
-  "duration_minutes": 30,
+  "duration_seconds": 1800,
   "auto_start": false
 }
 ```
