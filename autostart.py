@@ -1,4 +1,3 @@
-import sys
 import winreg
 
 RUN_KEY_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
@@ -14,9 +13,7 @@ def is_enabled(value_name: str = APP_VALUE_NAME) -> bool:
         return False
 
 
-def enable(value_name: str = APP_VALUE_NAME, exe_path: str | None = None) -> None:
-    if exe_path is None:
-        exe_path = sys.executable
+def enable(value_name: str = APP_VALUE_NAME, *, exe_path: str) -> None:
     with winreg.OpenKey(
         winreg.HKEY_CURRENT_USER, RUN_KEY_PATH, 0, winreg.KEY_SET_VALUE
     ) as key:

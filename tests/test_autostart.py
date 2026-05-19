@@ -28,7 +28,7 @@ def test_is_enabled_returns_false_when_not_set(test_value_name):
 
 
 def test_enable_writes_registry_value(test_value_name):
-    enable(test_value_name, r"C:\fake\path\standup_timer.exe")
+    enable(test_value_name, exe_path=r"C:\fake\path\standup_timer.exe")
     assert is_enabled(test_value_name) is True
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY_PATH) as k:
         value, _ = winreg.QueryValueEx(k, test_value_name)
@@ -36,7 +36,7 @@ def test_enable_writes_registry_value(test_value_name):
 
 
 def test_disable_removes_registry_value(test_value_name):
-    enable(test_value_name, r"C:\fake\standup_timer.exe")
+    enable(test_value_name, exe_path=r"C:\fake\standup_timer.exe")
     disable(test_value_name)
     assert is_enabled(test_value_name) is False
 
@@ -47,8 +47,8 @@ def test_disable_when_not_set_is_idempotent(test_value_name):
 
 
 def test_enable_overwrites_existing_value(test_value_name):
-    enable(test_value_name, r"C:\old\path.exe")
-    enable(test_value_name, r"C:\new\path.exe")
+    enable(test_value_name, exe_path=r"C:\old\path.exe")
+    enable(test_value_name, exe_path=r"C:\new\path.exe")
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY_PATH) as k:
         value, _ = winreg.QueryValueEx(k, test_value_name)
     assert value == r"C:\new\path.exe"
