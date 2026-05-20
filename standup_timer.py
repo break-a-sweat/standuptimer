@@ -18,6 +18,8 @@ from config import Config
 from timer import State, TimerState
 
 PRESET_MINUTES = [25, 30, 45, 60]
+CUSTOM_DIALOG_MIN_WIDTH = 360
+CUSTOM_DIALOG_MIN_HEIGHT = 190
 LOG_PATH = Path(os.environ.get("APPDATA", str(Path.home()))) / "standuptimer" / "standuptimer.log"
 
 
@@ -39,6 +41,14 @@ def _format_duration_friendly(seconds: int) -> str:
     if seconds >= 60 and seconds % 60 == 0:
         return f"{seconds // 60} 分鐘"
     return _format_mmss(seconds)
+
+
+def _center_geometry(screen_width: int, screen_height: int, width: int, height: int) -> str:
+    width = max(width, CUSTOM_DIALOG_MIN_WIDTH)
+    height = max(height, CUSTOM_DIALOG_MIN_HEIGHT)
+    x = (screen_width - width) // 2
+    y = (screen_height - height) // 2
+    return f"{width}x{height}+{x}+{y}"
 
 
 class StandUpApp:
@@ -109,8 +119,9 @@ class StandUpApp:
 
     def _show_custom_dialog(self):
         dialog = tk.Toplevel(self.tk_root)
-        dialog.title("自訂時長")
+        dialog.title("自訂倒數時長")
         dialog.resizable(False, False)
+        dialog.minsize(CUSTOM_DIALOG_MIN_WIDTH, CUSTOM_DIALOG_MIN_HEIGHT)
         dialog.attributes("-topmost", True)
 
         style = ttk.Style(dialog)
@@ -120,7 +131,7 @@ class StandUpApp:
             pass
 
         main = ttk.Frame(dialog, padding=20)
-        main.pack()
+        main.pack(fill="both", expand=True)
 
         initial_min, initial_sec = divmod(self.config.duration_seconds, 60)
         min_var = tk.IntVar(value=initial_min)
@@ -130,11 +141,11 @@ class StandUpApp:
 
         ttk.Label(main, text="分").grid(row=1, column=0, padx=(0, 6))
         min_spin = ttk.Spinbox(main, from_=0, to=999, width=6, textvariable=min_var)
-        min_spin.grid(row=1, column=1, padx=(0, 18))
+        min_spin.grid(row=1, column=1, padx=(0, 18), sticky="ew")
 
         ttk.Label(main, text="秒").grid(row=1, column=2, padx=(0, 6))
         sec_spin = ttk.Spinbox(main, from_=0, to=59, width=6, textvariable=sec_var)
-        sec_spin.grid(row=1, column=3)
+        sec_spin.grid(row=1, column=3, sticky="ew")
 
         btn_frame = ttk.Frame(main)
         btn_frame.grid(row=2, column=0, columnspan=4, pady=(20, 0), sticky="e")
@@ -163,11 +174,13 @@ class StandUpApp:
 
         # Center on screen
         dialog.update_idletasks()
-        w = dialog.winfo_width()
-        h = dialog.winfo_height()
-        x = (dialog.winfo_screenwidth() - w) // 2
-        y = (dialog.winfo_screenheight() - h) // 2
-        dialog.geometry(f"+{x}+{y}")
+        geometry = _center_geometry(
+            dialog.winfo_screenwidth(),
+            dialog.winfo_screenheight(),
+            dialog.winfo_width(),
+            dialog.winfo_height(),
+        )
+        dialog.geometry(geometry)
 
         min_spin.focus()
 
