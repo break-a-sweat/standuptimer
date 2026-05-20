@@ -366,7 +366,6 @@ class StandUpApp:
         if key != self._last_icon_key:
             self.tray.icon = icon_module.make_icon(state, label)
             self._last_icon_key = key
-        self.tray.menu = self._build_menu()
         self.tray.title = self._tooltip_text()
 
     def _tooltip_text(self) -> str:

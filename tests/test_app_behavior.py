@@ -34,3 +34,36 @@ def test_tray_menu_has_only_requested_items(monkeypatch):
     ]
     assert all(item.submenu is None for item in menu.items)
     assert all(item.enabled for item in menu.items)
+
+
+def test_refresh_tray_does_not_rebuild_unchanged_menu(monkeypatch):
+    monkeypatch.setattr(
+        standup_timer,
+        "Config",
+        lambda: SimpleNamespace(duration_seconds=1500, auto_start=False),
+    )
+
+    class FakeTray:
+        def __init__(self, menu):
+            self._menu = menu
+            self.menu_assignments = 0
+            self.icon = None
+            self.title = ""
+
+        @property
+        def menu(self):
+            return self._menu
+
+        @menu.setter
+        def menu(self, value):
+            self.menu_assignments += 1
+            self._menu = value
+
+    app = standup_timer.StandUpApp()
+    tray = FakeTray(app._build_menu())
+    app.tray = tray
+
+    app._refresh_tray()
+    app._refresh_tray()
+
+    assert tray.menu_assignments == 0
