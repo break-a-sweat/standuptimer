@@ -46,7 +46,7 @@ Settings live at `%APPDATA%\standuptimer\config.json`. The file is created on fi
 
 ```json
 {
-  "duration_seconds": 1800,
+  "duration_seconds": 1500,
   "auto_start": false
 }
 ```

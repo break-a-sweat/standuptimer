@@ -12,6 +12,10 @@ def test_load_with_no_file_returns_defaults(tmp_path):
     assert cfg.auto_start is False
 
 
+def test_default_duration_is_25_minutes():
+    assert DEFAULT_DURATION_SECONDS == 1500
+
+
 def test_save_and_load_round_trip(tmp_path):
     path = tmp_path / "config.json"
     cfg = Config(path)

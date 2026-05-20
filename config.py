@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 
-DEFAULT_DURATION_SECONDS = 1800  # 30 minutes
+DEFAULT_DURATION_SECONDS = 1500  # 25 minutes
 DEFAULT_AUTO_START = False
 
 
