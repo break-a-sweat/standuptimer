@@ -7,3 +7,6 @@ dist/
 *.egg-info/
 .venv/
 venv/
+.superpowers/
+docs/superpowers/
+gh-auth.*.log
