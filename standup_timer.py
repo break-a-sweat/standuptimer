@@ -18,7 +18,7 @@ from config import Config
 from timer import State, TimerState
 
 PRESET_MINUTES = [25, 30, 45, 60]
-CUSTOM_DIALOG_MIN_WIDTH = 360
+CUSTOM_DIALOG_MIN_WIDTH = 520
 CUSTOM_DIALOG_MIN_HEIGHT = 190
 LOG_PATH = Path(os.environ.get("APPDATA", str(Path.home()))) / "standuptimer" / "standuptimer.log"
 
