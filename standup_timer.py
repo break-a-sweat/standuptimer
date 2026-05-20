@@ -347,36 +347,14 @@ class StandUpApp:
         return _format_mmss(self.config.duration_seconds)
 
     def _build_menu(self) -> Menu:
-        is_running = self.timer.state == State.RUNNING
-        start_pause_label = "⏸ 暫停" if is_running else "▶ 開始"
-
-        def make_preset(minutes):
-            secs = minutes * 60
-            return Item(
-                f"{minutes} 分鐘",
-                self.on_select_preset(secs),
-                checked=lambda _i, _s=secs: self.config.duration_seconds == _s,
-                radio=True,
-            )
-
-        duration_submenu = Menu(
-            *(make_preset(m) for m in PRESET_MINUTES),
-            Item("自訂…", self.on_custom_duration),
-        )
-
         return Menu(
-            Item(start_pause_label, self.on_start_pause, default=True),
-            Item("↻ 重設", self.on_reset),
-            Menu.SEPARATOR,
-            Item("時長", duration_submenu),
-            Menu.SEPARATOR,
+            Item("自訂時間", self.on_custom_duration, default=True),
+            Item("重新計時", self.on_reset),
             Item(
-                "開機自動啟動",
+                "開機啟動",
                 self.on_toggle_autostart,
                 checked=lambda _i: self.config.auto_start,
             ),
-            Menu.SEPARATOR,
-            Item("✕ 離開", self.on_quit),
         )
 
     def _refresh_tray(self):

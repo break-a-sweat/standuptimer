@@ -5,8 +5,8 @@ A lightweight Windows tray-icon countdown timer. When the countdown finishes, a 
 ## Features
 
 - System tray icon **displays the remaining time as `MM:SS` text**
-- Right-click menu with Start / Pause / Reset
-- Preset durations (25 / 30 / 45 / 60 min) plus custom (down to 1 second)
+- Minimal right-click menu: 自訂時間 / 重新計時 / 開機啟動
+- Custom duration down to 1 second
 - Click-to-dismiss reminder overlay (no auto-disappear)
 - Optional "Start with Windows" toggle (per-user, no admin needed)
 
