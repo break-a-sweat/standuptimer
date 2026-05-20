@@ -29,7 +29,8 @@ def test_tray_menu_has_only_requested_items(monkeypatch):
 
     assert [item.text for item in menu.items] == [
         "自訂時間",
-        "重新計時",
         "開機啟動",
+        "退出",
     ]
     assert all(item.submenu is None for item in menu.items)
+    assert all(item.enabled for item in menu.items)

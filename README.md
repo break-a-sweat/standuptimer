@@ -5,7 +5,7 @@ A lightweight Windows tray-icon countdown timer. When the countdown finishes, a 
 ## Features
 
 - System tray icon **displays the remaining time as `MM:SS` text**
-- Minimal right-click menu: 自訂時間 / 重新計時 / 開機啟動
+- Minimal right-click menu: 自訂時間 / 開機啟動 / 退出
 - Custom duration down to 1 second
 - Click-to-dismiss reminder overlay (no auto-disappear)
 - Optional "Start with Windows" toggle (per-user, no admin needed)

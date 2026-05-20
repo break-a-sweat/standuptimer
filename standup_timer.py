@@ -349,12 +349,12 @@ class StandUpApp:
     def _build_menu(self) -> Menu:
         return Menu(
             Item("自訂時間", self.on_custom_duration, default=True),
-            Item("重新計時", self.on_reset),
             Item(
                 "開機啟動",
                 self.on_toggle_autostart,
                 checked=lambda _i: self.config.auto_start,
             ),
+            Item("退出", self.on_quit),
         )
 
     def _refresh_tray(self):
