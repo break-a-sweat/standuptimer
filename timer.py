@@ -42,12 +42,18 @@ class TimerState:
             self.state = State.FINISHED
 
     def change_duration(self, seconds: int) -> None:
+        restart_after_dismissed_reminder = (
+            self.state == State.PAUSED and self.remaining_seconds <= 0
+        )
         self.duration_seconds = seconds
         self.remaining_seconds = seconds
         # state preservation:
         # IDLE -> stays IDLE, RUNNING -> stays RUNNING (restarts from full),
-        # PAUSED -> stays PAUSED (new remaining), FINISHED -> goes back to IDLE
-        if self.state == State.FINISHED:
+        # PAUSED -> stays PAUSED unless it was the post-reminder zero state,
+        # FINISHED -> goes back to IDLE.
+        if restart_after_dismissed_reminder:
+            self.state = State.RUNNING
+        elif self.state == State.FINISHED:
             self.state = State.IDLE
 
     def dismiss(self) -> None:

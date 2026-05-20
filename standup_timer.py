@@ -348,7 +348,8 @@ class StandUpApp:
 
     def _build_menu(self) -> Menu:
         return Menu(
-            Item("自訂時間", self.on_custom_duration, default=True),
+            Item("開始/暫停", self.on_start_pause, default=True, visible=False),
+            Item("自訂時間", self.on_custom_duration),
             Item(
                 "開機啟動",
                 self.on_toggle_autostart,

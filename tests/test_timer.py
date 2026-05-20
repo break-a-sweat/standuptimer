@@ -99,6 +99,20 @@ def test_change_duration_while_paused_keeps_paused_with_new_remaining():
     assert t.remaining_seconds == 600
 
 
+def test_change_duration_after_dismissed_reminder_starts_new_countdown():
+    t = TimerState(duration_seconds=10)
+    t.start()
+    for _ in range(10):
+        t.tick()
+    t.dismiss()
+
+    t.change_duration(600)
+
+    assert t.duration_seconds == 600
+    assert t.remaining_seconds == 600
+    assert t.state == State.RUNNING
+
+
 def test_dismiss_from_finished_pauses_at_zero():
     t = TimerState(duration_seconds=10)
     t.start()
