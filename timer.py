@@ -30,7 +30,7 @@ class TimerState:
             self.state = State.PAUSED
 
     def reset(self) -> None:
-        self.state = State.IDLE
+        self.state = State.PAUSED
         self.remaining_seconds = self.duration_seconds
 
     def tick(self) -> None:

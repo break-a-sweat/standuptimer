@@ -35,13 +35,13 @@ def test_start_from_paused_resumes_running():
     assert t.remaining_seconds == 1799
 
 
-def test_reset_returns_to_idle_with_full_remaining():
+def test_reset_returns_to_paused_with_full_remaining():
     t = TimerState(duration_seconds=1800)
     t.start()
     for _ in range(100):
         t.tick()
     t.reset()
-    assert t.state == State.IDLE
+    assert t.state == State.PAUSED
     assert t.remaining_seconds == 1800
 
 

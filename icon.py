@@ -8,8 +8,8 @@ _FONT_SIZE = 22
 _COLOURS = {
     State.IDLE: (140, 140, 140),       # grey
     State.FINISHED: (140, 140, 140),   # same as idle
-    State.RUNNING: (74, 158, 255),     # blue
-    State.PAUSED: (255, 165, 80),      # orange
+    State.RUNNING: (140, 140, 140),    # grey while counting down
+    State.PAUSED: (255, 165, 80),      # bright orange to prompt action
 }
 
 

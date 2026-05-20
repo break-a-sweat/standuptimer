@@ -55,6 +55,7 @@ class StandUpApp:
     def __init__(self):
         self.config = Config()
         self.timer = TimerState(duration_seconds=self.config.duration_seconds)
+        self.timer.start()
         self.tray: pystray.Icon | None = None
         self.tk_root: tk.Tk | None = None
         self._stop = threading.Event()

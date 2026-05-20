@@ -15,10 +15,10 @@ def test_make_icon_returns_image_64x64():
     assert img.size == (SIZE, SIZE)
 
 
-def test_make_icon_running_background_distinct_from_idle():
+def test_make_icon_running_background_matches_idle_gray():
     p_idle = make_icon(State.IDLE, "30:00").getpixel(_BG_SAMPLE)
     p_running = make_icon(State.RUNNING, "30:00").getpixel(_BG_SAMPLE)
-    assert p_running != p_idle
+    assert p_running == p_idle
 
 
 def test_make_icon_paused_background_distinct_from_running():
