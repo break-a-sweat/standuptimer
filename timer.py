@@ -15,7 +15,11 @@ class TimerState:
         self.state = State.IDLE
 
     def start(self) -> None:
-        if self.state in (State.IDLE, State.PAUSED):
+        if self.state == State.PAUSED:
+            if self.remaining_seconds <= 0:
+                self.remaining_seconds = self.duration_seconds
+            self.state = State.RUNNING
+        elif self.state == State.IDLE:
             self.state = State.RUNNING
         elif self.state == State.FINISHED:
             self.remaining_seconds = self.duration_seconds
@@ -49,5 +53,5 @@ class TimerState:
     def dismiss(self) -> None:
         """Called when the user clicks the reminder overlay."""
         if self.state == State.FINISHED:
-            self.state = State.IDLE
-            self.remaining_seconds = self.duration_seconds
+            self.state = State.PAUSED
+            self.remaining_seconds = 0
