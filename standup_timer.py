@@ -19,7 +19,8 @@ from timer import State, TimerState
 
 PRESET_MINUTES = [25, 30, 45, 60]
 CUSTOM_DIALOG_MIN_WIDTH = 520
-CUSTOM_DIALOG_MIN_HEIGHT = 190
+CUSTOM_DIALOG_MIN_HEIGHT = 240
+CUSTOM_DIALOG_SCREEN_MARGIN = 32
 LOG_PATH = Path(os.environ.get("APPDATA", str(Path.home()))) / "standuptimer" / "standuptimer.log"
 
 
@@ -44,11 +45,47 @@ def _format_duration_friendly(seconds: int) -> str:
 
 
 def _center_geometry(screen_width: int, screen_height: int, width: int, height: int) -> str:
-    width = max(width, CUSTOM_DIALOG_MIN_WIDTH)
-    height = max(height, CUSTOM_DIALOG_MIN_HEIGHT)
-    x = (screen_width - width) // 2
-    y = (screen_height - height) // 2
+    max_width = max(1, screen_width - (CUSTOM_DIALOG_SCREEN_MARGIN * 2))
+    max_height = max(1, screen_height - (CUSTOM_DIALOG_SCREEN_MARGIN * 2))
+    width = min(max(width, CUSTOM_DIALOG_MIN_WIDTH), max_width)
+    height = min(max(height, CUSTOM_DIALOG_MIN_HEIGHT), max_height)
+    x = max(0, (screen_width - width) // 2)
+    y = max(0, (screen_height - height) // 2)
     return f"{width}x{height}+{x}+{y}"
+
+
+def _dialog_min_size(screen_width: int, screen_height: int) -> tuple[int, int]:
+    max_width = max(1, screen_width - (CUSTOM_DIALOG_SCREEN_MARGIN * 2))
+    max_height = max(1, screen_height - (CUSTOM_DIALOG_SCREEN_MARGIN * 2))
+    return (
+        min(CUSTOM_DIALOG_MIN_WIDTH, max_width),
+        min(CUSTOM_DIALOG_MIN_HEIGHT, max_height),
+    )
+
+
+def _parse_duration_fields(minutes_text: str, seconds_text: str) -> int:
+    minutes_text = minutes_text.strip()
+    seconds_text = seconds_text.strip()
+    try:
+        minutes = int(minutes_text) if minutes_text else 0
+        seconds = int(seconds_text) if seconds_text else 0
+    except ValueError as exc:
+        raise ValueError("請輸入數字") from exc
+    if minutes < 0:
+        raise ValueError("分鐘不可小於 0")
+    if not 0 <= seconds <= 59:
+        raise ValueError("秒數需介於 0 到 59")
+    return (minutes * 60) + seconds
+
+
+def _duration_preview_text(minutes_text: str, seconds_text: str) -> str:
+    try:
+        total = _parse_duration_fields(minutes_text, seconds_text)
+    except ValueError as exc:
+        return str(exc)
+    if total < 1:
+        return "請輸入至少 1 秒"
+    return f"將設定為 {_format_mmss(total)}"
 
 
 class StandUpApp:
@@ -122,7 +159,9 @@ class StandUpApp:
         dialog = tk.Toplevel(self.tk_root)
         dialog.title("自訂倒數時長")
         dialog.resizable(False, False)
-        dialog.minsize(CUSTOM_DIALOG_MIN_WIDTH, CUSTOM_DIALOG_MIN_HEIGHT)
+        dialog.minsize(
+            *_dialog_min_size(dialog.winfo_screenwidth(), dialog.winfo_screenheight())
+        )
         dialog.attributes("-topmost", True)
 
         style = ttk.Style(dialog)
@@ -131,34 +170,95 @@ class StandUpApp:
         except tk.TclError:
             pass
 
-        main = ttk.Frame(dialog, padding=20)
+        main = ttk.Frame(dialog, padding=(22, 18, 22, 18))
         main.pack(fill="both", expand=True)
+        main.columnconfigure(0, weight=1)
+        main.columnconfigure(1, weight=1)
+        main.rowconfigure(1, weight=1)
 
         initial_min, initial_sec = divmod(self.config.duration_seconds, 60)
-        min_var = tk.IntVar(value=initial_min)
-        sec_var = tk.IntVar(value=initial_sec)
+        min_var = tk.StringVar(value=str(initial_min))
+        sec_var = tk.StringVar(value=str(initial_sec))
 
-        ttk.Label(main, text="設定倒數時長").grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 12))
+        ttk.Label(
+            main,
+            text="設定倒數時長",
+            font=("Microsoft JhengHei UI", 12, "bold"),
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
 
-        ttk.Label(main, text="分").grid(row=1, column=0, padx=(0, 6))
-        min_spin = ttk.Spinbox(main, from_=0, to=999, width=6, textvariable=min_var)
-        min_spin.grid(row=1, column=1, padx=(0, 18), sticky="ew")
+        input_frame = ttk.LabelFrame(main, text="輸入", padding=(14, 10))
+        input_frame.grid(row=1, column=0, sticky="nsew", padx=(0, 14))
+        input_frame.columnconfigure(0, weight=1)
+        input_frame.columnconfigure(1, weight=1)
 
-        ttk.Label(main, text="秒").grid(row=1, column=2, padx=(0, 6))
-        sec_spin = ttk.Spinbox(main, from_=0, to=59, width=6, textvariable=sec_var)
-        sec_spin.grid(row=1, column=3, sticky="ew")
+        ttk.Label(input_frame, text="分鐘").grid(row=0, column=0, sticky="w")
+        min_spin = ttk.Spinbox(
+            input_frame,
+            from_=0,
+            to=999,
+            width=8,
+            justify="center",
+            textvariable=min_var,
+        )
+        min_spin.grid(row=1, column=0, sticky="ew", padx=(0, 10), pady=(6, 0))
+
+        ttk.Label(input_frame, text="秒").grid(row=0, column=1, sticky="w")
+        sec_spin = ttk.Spinbox(
+            input_frame,
+            from_=0,
+            to=59,
+            width=8,
+            justify="center",
+            textvariable=sec_var,
+        )
+        sec_spin.grid(row=1, column=1, sticky="ew", pady=(6, 0))
+
+        ttk.Label(
+            input_frame,
+            text="空白欄位會自動視為 0",
+            foreground="#666666",
+        ).grid(row=2, column=0, columnspan=2, sticky="w", pady=(12, 0))
+
+        preview_frame = ttk.LabelFrame(main, text="預覽", padding=(14, 10))
+        preview_frame.grid(row=1, column=1, sticky="nsew")
+        preview_frame.columnconfigure(0, weight=1)
+
+        preview_var = tk.StringVar(
+            value=_duration_preview_text(min_var.get(), sec_var.get())
+        )
+        ttk.Label(
+            preview_frame,
+            textvariable=preview_var,
+            font=("Microsoft JhengHei UI", 13, "bold"),
+            anchor="center",
+            justify="center",
+            wraplength=150,
+        ).grid(row=0, column=0, sticky="ew", pady=(8, 10))
+
+        ttk.Label(
+            preview_frame,
+            text=f"目前 {_format_mmss(self.config.duration_seconds)}",
+            foreground="#666666",
+            anchor="center",
+        ).grid(row=1, column=0, sticky="ew")
+
+        def update_preview(*_args):
+            preview_var.set(_duration_preview_text(min_var.get(), sec_var.get()))
+
+        min_var.trace_add("write", update_preview)
+        sec_var.trace_add("write", update_preview)
 
         btn_frame = ttk.Frame(main)
-        btn_frame.grid(row=2, column=0, columnspan=4, pady=(20, 0), sticky="e")
+        btn_frame.grid(row=2, column=0, columnspan=2, pady=(18, 0), sticky="e")
 
         def accept():
             try:
-                m = int(min_var.get())
-                s = int(sec_var.get())
-            except (tk.TclError, ValueError):
+                total = _parse_duration_fields(min_var.get(), sec_var.get())
+            except ValueError as exc:
+                preview_var.set(str(exc))
                 return
-            total = m * 60 + s
             if total < 1:
+                preview_var.set("請輸入至少 1 秒")
                 return
             self._change_duration(total)
             dialog.destroy()
