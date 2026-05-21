@@ -231,6 +231,14 @@ def _compute_paused_label_layout(
     )
 
 
+def _compute_finished_label_layout(
+    work_area: tuple[int, int, int, int],
+    text_width: int,
+    text_height: int,
+) -> PausedLabelLayout:
+    return _compute_paused_label_layout(work_area, text_width, text_height)
+
+
 def _font_measurements(parent: tk.Misc, font_spec: tuple[str, int, str], text: str) -> tuple[int, int]:
     font = tkfont.Font(parent, font=font_spec)
     return font.measure(text), font.metrics("linespace")
@@ -241,150 +249,15 @@ def _format_mmss(seconds: int) -> str:
     return f"{minutes:02d}:{seconds:02d}"
 
 
-def show(on_dismiss: Callable[[], None], secondary_text: str, parent: tk.Tk) -> tk.Toplevel:
-    """Show the reminder overlay. Calls on_dismiss() when clicked, then destroys.
-
-    `secondary_text` is the second line under the main heading. The caller
-    formats it, for example "已坐 30 分鐘" or "已坐 00:05".
-
-    Returns the Toplevel so callers can track or destroy it externally.
-    """
-    win = tk.Toplevel(parent)
-    win.overrideredirect(True)
-    win.attributes("-topmost", True)
-    win.attributes("-transparentcolor", TRANSPARENT_COLOUR)
-    win.configure(bg=TRANSPARENT_COLOUR)
-
-    work_area = _get_work_area()
-    primary_width, primary_height = _font_measurements(win, PRIMARY_LINE_FONT, PRIMARY_TEXT)
-    secondary_width, secondary_height = _font_measurements(win, SECONDARY_LINE_FONT, secondary_text)
-    hint_width, hint_height = _font_measurements(win, HINT_LINE_FONT, HINT_TEXT)
-    layout = _compute_layout(
-        work_area=work_area,
-        primary_text_width=primary_width,
-        secondary_text_width=secondary_width,
-        hint_text_width=hint_width,
-        primary_line_height=primary_height,
-        secondary_line_height=secondary_height,
-        hint_line_height=hint_height,
-    )
-
-    x, y = _compute_position(work_area, layout.width, layout.height)
-    win.geometry(f"{layout.width}x{layout.height}+{x}+{y}")
-
-    canvas = tk.Canvas(
-        win,
-        width=layout.width,
-        height=layout.height,
-        bg=TRANSPARENT_COLOUR,
-        highlightthickness=0,
-    )
-    canvas.pack()
-
-    panel_bounds = layout.panel_bounds
-    shadow_bounds = (
-        panel_bounds[0] + 2,
-        panel_bounds[1] + 3,
-        panel_bounds[2] + 2,
-        panel_bounds[3] + 3,
-    )
-
-    for bounds, fill, outline, width in (
-        (shadow_bounds, SHADOW_FILL, "", 1),
-        (panel_bounds, PANEL_FILL, PANEL_OUTLINE, 1),
-    ):
-        x0, y0, x1, y1 = bounds
-        radius = min(PANEL_RADIUS, (x1 - x0) // 2, (y1 - y0) // 2)
-        rounded_points = (
-            x0 + radius,
-            y0,
-            x1 - radius,
-            y0,
-            x1,
-            y0,
-            x1,
-            y0 + radius,
-            x1,
-            y1 - radius,
-            x1,
-            y1,
-            x1 - radius,
-            y1,
-            x0 + radius,
-            y1,
-            x0,
-            y1,
-            x0,
-            y1 - radius,
-            x0,
-            y0 + radius,
-            x0,
-            y0,
-        )
-        canvas.create_polygon(
-            rounded_points,
-            smooth=True,
-            fill=fill,
-            outline=outline,
-            width=width,
-        )
-
-    x0, y0, x1, y1 = panel_bounds
-    canvas.create_line(
-        x0 + 14,
-        y0 + 18,
-        x0 + 14,
-        y1 - 18,
-        fill=ACCENT_COLOUR,
-        width=4,
-        capstyle=tk.ROUND,
-    )
-
-    canvas.create_text(
-        layout.text_x,
-        layout.primary_y,
-        anchor="nw",
-        text=PRIMARY_TEXT,
-        font=PRIMARY_LINE_FONT,
-        fill="#ffffff",
-        width=layout.text_width,
-    )
-    canvas.create_text(
-        layout.text_x,
-        layout.secondary_y,
-        anchor="nw",
-        text=secondary_text,
-        font=SECONDARY_LINE_FONT,
-        fill="#cfd8dc",
-        width=layout.text_width,
-    )
-    canvas.create_text(
-        layout.text_x,
-        layout.hint_y,
-        anchor="nw",
-        text=HINT_TEXT,
-        font=HINT_LINE_FONT,
-        fill="#8fa1aa",
-        width=layout.text_width,
-    )
-
-    def dismiss(_event=None):
-        if not win.winfo_exists():
-            return
-        try:
-            on_dismiss()
-        finally:
-            win.destroy()
-
-    canvas.bind("<Button-1>", dismiss)
-    win.bind("<Button-1>", dismiss)
-    return win
+def _finished_label_text() -> str:
+    return "Timer finished 00:00"
 
 
-def show_paused_label(
+def _show_status_label(
     on_click: Callable[[], None],
-    remaining_seconds: int,
+    text: str,
     parent: tk.Tk,
+    destroy_before_callback: bool = False,
 ) -> tk.Toplevel:
     win = tk.Toplevel(parent)
     win.overrideredirect(True)
@@ -396,7 +269,6 @@ def show_paused_label(
         pass
     win.configure(bg=TRANSPARENT_COLOUR)
 
-    text = f"Timer paused {_format_mmss(remaining_seconds)}"
     work_area = _get_work_area()
     text_width, text_height = _font_measurements(win, PAUSED_LABEL_FONT, text)
     layout = _compute_paused_label_layout(work_area, text_width, text_height)
@@ -436,6 +308,10 @@ def show_paused_label(
     def click(_event=None):
         if not win.winfo_exists():
             return
+        if destroy_before_callback:
+            win.destroy()
+            on_click()
+            return
         try:
             on_click()
         finally:
@@ -445,3 +321,26 @@ def show_paused_label(
     canvas.bind("<Button-1>", click)
     win.bind("<Button-1>", click)
     return win
+
+
+def show(on_dismiss: Callable[[], None], secondary_text: str, parent: tk.Tk) -> tk.Toplevel:
+    """Show the finished reminder using the compact orange status label."""
+    del secondary_text
+    return _show_status_label(
+        on_click=on_dismiss,
+        text=_finished_label_text(),
+        parent=parent,
+        destroy_before_callback=True,
+    )
+
+
+def show_paused_label(
+    on_click: Callable[[], None],
+    remaining_seconds: int,
+    parent: tk.Tk,
+) -> tk.Toplevel:
+    return _show_status_label(
+        on_click=on_click,
+        text=f"Timer paused {_format_mmss(remaining_seconds)}",
+        parent=parent,
+    )

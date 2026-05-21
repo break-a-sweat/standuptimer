@@ -243,6 +243,34 @@ def test_dismissing_finished_overlay_after_duration_change_still_pauses(monkeypa
     assert paused_label_calls[0]["remaining_seconds"] == 0
 
 
+def test_showing_finished_overlay_destroys_existing_paused_label(monkeypatch):
+    paused_label = FakeWindow()
+    monkeypatch.setattr(standup_timer, "Config", lambda: _config(duration_seconds=5))
+    monkeypatch.setattr(
+        standup_timer.overlay,
+        "show_paused_label",
+        lambda **_kwargs: paused_label,
+    )
+    monkeypatch.setattr(
+        standup_timer.overlay,
+        "show",
+        lambda **_kwargs: FakeWindow(),
+    )
+
+    app = standup_timer.StandUpApp()
+    app.tk_root = object()
+    app.tray = _fake_tray()
+    app.timer.pause()
+    app._refresh_tray()
+    app.timer.state = State.FINISHED
+
+    app._show_overlay(duration_seconds=5)
+
+    assert paused_label.destroyed
+    assert app._current_paused_label is None
+    assert app.timer.state == State.FINISHED
+
+
 def test_clicking_paused_label_starts_timer_and_hides_label(monkeypatch):
     clicked = {}
     label = FakeWindow()

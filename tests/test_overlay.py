@@ -1,7 +1,10 @@
+import overlay
 from overlay import (
+    _compute_finished_label_layout,
     _compute_layout,
     _compute_paused_label_layout,
     _compute_position,
+    _finished_label_text,
     _panel_bounds,
     MARGIN,
     PAUSED_LABEL_HEIGHT,
@@ -104,3 +107,53 @@ def test_paused_label_layout_caps_width_to_available_work_area():
     assert layout.width <= 160 - (MARGIN * 2)
     assert layout.text_width > 0
     assert layout.text_x < layout.width
+
+
+def test_finished_label_uses_same_compact_layout_as_paused_label():
+    finished = _compute_finished_label_layout(
+        work_area=(0, 0, 1920, 1040),
+        text_width=140,
+        text_height=18,
+    )
+    paused = _compute_paused_label_layout(
+        work_area=(0, 0, 1920, 1040),
+        text_width=140,
+        text_height=18,
+    )
+
+    assert finished == paused
+
+
+def test_finished_label_text_is_compact_status_text():
+    assert _finished_label_text() == "Timer finished 00:00"
+
+
+def test_show_uses_compact_status_label_renderer(monkeypatch):
+    calls = []
+    expected_window = object()
+
+    def fake_status_label(**kwargs):
+        calls.append(kwargs)
+        return expected_window
+
+    monkeypatch.setattr(overlay, "_show_status_label", fake_status_label, raising=False)
+
+    def dismiss():
+        return None
+
+    parent = object()
+    result = overlay.show(
+        on_dismiss=dismiss,
+        secondary_text="elapsed 00:05",
+        parent=parent,
+    )
+
+    assert result is expected_window
+    assert calls == [
+        {
+            "on_click": dismiss,
+            "text": "Timer finished 00:00",
+            "parent": parent,
+            "destroy_before_callback": True,
+        }
+    ]

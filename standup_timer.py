@@ -307,6 +307,7 @@ class StandUpApp:
             self.tk_root.after(0, lambda: self._show_overlay(duration_seconds))
 
     def _show_overlay(self, duration_seconds: int):
+        self._destroy_paused_label()
         # If a previous overlay still exists, destroy it first
         if self._current_overlay is not None:
             try:
