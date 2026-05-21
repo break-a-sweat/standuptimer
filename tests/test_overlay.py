@@ -144,7 +144,7 @@ def test_finished_reminder_accent_matches_paused_orange():
 
 def test_overlay_fonts_use_handwriting_family():
     assert LATIN_HANDWRITING_FONT_FAMILY == "Segoe Print"
-    assert CHINESE_HANDWRITING_FONT_FAMILY == "標楷體"
+    assert CHINESE_HANDWRITING_FONT_FAMILY == "Microsoft JhengHei UI"
     assert PRIMARY_LINE_FONT[0] == CHINESE_HANDWRITING_FONT_FAMILY
     assert SECONDARY_LINE_FONT[0] == CHINESE_HANDWRITING_FONT_FAMILY
     assert HINT_LINE_FONT[0] == CHINESE_HANDWRITING_FONT_FAMILY
