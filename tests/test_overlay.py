@@ -5,11 +5,16 @@ from overlay import (
     _compute_position,
     _panel_bounds,
     ACCENT_COLOUR,
+    HANDWRITING_FONT_FAMILY,
+    HINT_LINE_FONT,
     MARGIN,
     PAUSED_LABEL_HEIGHT,
     PAUSED_LABEL_MIN_WIDTH,
     PAUSED_LABEL_DOT_FILL,
+    PAUSED_LABEL_FONT,
     PANEL_INSET,
+    PRIMARY_LINE_FONT,
+    SECONDARY_LINE_FONT,
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
 )
@@ -131,6 +136,14 @@ def test_finished_reminder_uses_larger_layout_than_paused_label():
 
 def test_finished_reminder_accent_matches_paused_orange():
     assert ACCENT_COLOUR == PAUSED_LABEL_DOT_FILL
+
+
+def test_overlay_fonts_use_handwriting_family():
+    assert HANDWRITING_FONT_FAMILY == "Segoe Print"
+    assert PRIMARY_LINE_FONT[0] == HANDWRITING_FONT_FAMILY
+    assert SECONDARY_LINE_FONT[0] == HANDWRITING_FONT_FAMILY
+    assert HINT_LINE_FONT[0] == HANDWRITING_FONT_FAMILY
+    assert PAUSED_LABEL_FONT[0] == HANDWRITING_FONT_FAMILY
 
 
 def test_show_uses_full_finished_reminder_renderer(monkeypatch):
