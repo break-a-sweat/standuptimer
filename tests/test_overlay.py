@@ -106,6 +106,21 @@ def test_paused_label_layout_is_compact():
     assert layout.text_width >= measured_text_width + PAUSED_LABEL_TEXT_SAFETY_PADDING
 
 
+def test_paused_label_layout_keeps_handwriting_text_away_from_window_edges():
+    measured_text_width = 140
+    measured_text_height = 23
+
+    layout = _compute_paused_label_layout(
+        work_area=(0, 0, 1920, 1040),
+        text_width=measured_text_width,
+        text_height=measured_text_height,
+    )
+
+    assert layout.height >= measured_text_height + 14
+    assert layout.text_y >= 7
+    assert layout.text_y + measured_text_height <= layout.height - 7
+
+
 def test_paused_label_layout_caps_width_to_available_work_area():
     layout = _compute_paused_label_layout(
         work_area=(0, 0, 160, 600),
@@ -144,7 +159,7 @@ def test_finished_reminder_accent_matches_paused_orange():
 
 def test_overlay_fonts_use_handwriting_family():
     assert LATIN_HANDWRITING_FONT_FAMILY == "Segoe Print"
-    assert CHINESE_HANDWRITING_FONT_FAMILY == "Microsoft JhengHei UI"
+    assert CHINESE_HANDWRITING_FONT_FAMILY == "LXGW WenKai TC"
     assert PRIMARY_LINE_FONT[0] == CHINESE_HANDWRITING_FONT_FAMILY
     assert SECONDARY_LINE_FONT[0] == CHINESE_HANDWRITING_FONT_FAMILY
     assert HINT_LINE_FONT[0] == CHINESE_HANDWRITING_FONT_FAMILY

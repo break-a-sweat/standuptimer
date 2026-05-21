@@ -16,12 +16,19 @@ import icon as icon_module
 import overlay
 import single_instance
 from config import Config
+from font_config import CHINESE_HANDWRITING_FONT_FAMILY, load_user_fonts
 from timer import State, TimerState
 
 PRESET_MINUTES = [25, 30, 45, 60]
 CUSTOM_DIALOG_MIN_WIDTH = 520
 CUSTOM_DIALOG_MIN_HEIGHT = 240
 CUSTOM_DIALOG_SCREEN_MARGIN = 32
+CUSTOM_DIALOG_TEXT_FONT = (CHINESE_HANDWRITING_FONT_FAMILY, 10, "normal")
+CUSTOM_DIALOG_TITLE_FONT = (CHINESE_HANDWRITING_FONT_FAMILY, 12, "bold")
+CUSTOM_DIALOG_PREVIEW_FONT = (CHINESE_HANDWRITING_FONT_FAMILY, 13, "bold")
+CUSTOM_DIALOG_LABEL_STYLE = "Handwriting.TLabel"
+CUSTOM_DIALOG_LABELFRAME_STYLE = "Handwriting.TLabelframe"
+CUSTOM_DIALOG_BUTTON_STYLE = "Handwriting.TButton"
 LOG_PATH = Path(os.environ.get("APPDATA", str(Path.home()))) / "standuptimer" / "standuptimer.log"
 PID_PATH = LOG_PATH.with_suffix(".pid")
 
@@ -63,6 +70,15 @@ def _dialog_min_size(screen_width: int, screen_height: int) -> tuple[int, int]:
         min(CUSTOM_DIALOG_MIN_WIDTH, max_width),
         min(CUSTOM_DIALOG_MIN_HEIGHT, max_height),
     )
+
+
+def _configure_custom_dialog_styles(style: ttk.Style) -> None:
+    style.configure(CUSTOM_DIALOG_LABEL_STYLE, font=CUSTOM_DIALOG_TEXT_FONT)
+    style.configure(
+        CUSTOM_DIALOG_LABELFRAME_STYLE + ".Label",
+        font=CUSTOM_DIALOG_TEXT_FONT,
+    )
+    style.configure(CUSTOM_DIALOG_BUTTON_STYLE, font=CUSTOM_DIALOG_TEXT_FONT)
 
 
 def _parse_duration_fields(minutes_text: str, seconds_text: str) -> int:
@@ -174,6 +190,7 @@ class StandUpApp:
             style.theme_use("vista")
         except tk.TclError:
             pass
+        _configure_custom_dialog_styles(style)
 
         main = ttk.Frame(dialog, padding=(22, 18, 22, 18))
         main.pack(fill="both", expand=True)
@@ -188,15 +205,24 @@ class StandUpApp:
         ttk.Label(
             main,
             text="設定倒數時長",
-            font=("Microsoft JhengHei UI", 12, "bold"),
+            font=CUSTOM_DIALOG_TITLE_FONT,
         ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
 
-        input_frame = ttk.LabelFrame(main, text="輸入", padding=(14, 10))
+        input_frame = ttk.LabelFrame(
+            main,
+            text="輸入",
+            padding=(14, 10),
+            style=CUSTOM_DIALOG_LABELFRAME_STYLE,
+        )
         input_frame.grid(row=1, column=0, sticky="nsew", padx=(0, 14))
         input_frame.columnconfigure(0, weight=1)
         input_frame.columnconfigure(1, weight=1)
 
-        ttk.Label(input_frame, text="分鐘").grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            input_frame,
+            text="分鐘",
+            style=CUSTOM_DIALOG_LABEL_STYLE,
+        ).grid(row=0, column=0, sticky="w")
         min_spin = ttk.Spinbox(
             input_frame,
             from_=0,
@@ -207,7 +233,11 @@ class StandUpApp:
         )
         min_spin.grid(row=1, column=0, sticky="ew", padx=(0, 10), pady=(6, 0))
 
-        ttk.Label(input_frame, text="秒").grid(row=0, column=1, sticky="w")
+        ttk.Label(
+            input_frame,
+            text="秒",
+            style=CUSTOM_DIALOG_LABEL_STYLE,
+        ).grid(row=0, column=1, sticky="w")
         sec_spin = ttk.Spinbox(
             input_frame,
             from_=0,
@@ -222,9 +252,15 @@ class StandUpApp:
             input_frame,
             text="空白欄位會自動視為 0",
             foreground="#666666",
+            style=CUSTOM_DIALOG_LABEL_STYLE,
         ).grid(row=2, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
-        preview_frame = ttk.LabelFrame(main, text="預覽", padding=(14, 10))
+        preview_frame = ttk.LabelFrame(
+            main,
+            text="預覽",
+            padding=(14, 10),
+            style=CUSTOM_DIALOG_LABELFRAME_STYLE,
+        )
         preview_frame.grid(row=1, column=1, sticky="nsew")
         preview_frame.columnconfigure(0, weight=1)
 
@@ -234,7 +270,7 @@ class StandUpApp:
         ttk.Label(
             preview_frame,
             textvariable=preview_var,
-            font=("Microsoft JhengHei UI", 13, "bold"),
+            font=CUSTOM_DIALOG_PREVIEW_FONT,
             anchor="center",
             justify="center",
             wraplength=150,
@@ -245,6 +281,7 @@ class StandUpApp:
             text=f"目前 {_format_mmss(self.config.duration_seconds)}",
             foreground="#666666",
             anchor="center",
+            style=CUSTOM_DIALOG_LABEL_STYLE,
         ).grid(row=1, column=0, sticky="ew")
 
         def update_preview(*_args):
@@ -271,8 +308,20 @@ class StandUpApp:
         def cancel():
             dialog.destroy()
 
-        ttk.Button(btn_frame, text="取消", command=cancel, width=8).pack(side="right", padx=(8, 0))
-        ttk.Button(btn_frame, text="確定", command=accept, width=8).pack(side="right")
+        ttk.Button(
+            btn_frame,
+            text="取消",
+            command=cancel,
+            width=8,
+            style=CUSTOM_DIALOG_BUTTON_STYLE,
+        ).pack(side="right", padx=(8, 0))
+        ttk.Button(
+            btn_frame,
+            text="確定",
+            command=accept,
+            width=8,
+            style=CUSTOM_DIALOG_BUTTON_STYLE,
+        ).pack(side="right")
 
         dialog.protocol("WM_DELETE_WINDOW", cancel)
         dialog.bind("<Return>", lambda _e: accept())
@@ -430,6 +479,8 @@ class StandUpApp:
     # ---------- entry point ----------
 
     def run(self):
+        load_user_fonts()
+
         # DPI awareness for accurate overlay positioning
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(1)

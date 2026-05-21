@@ -1,6 +1,26 @@
 import standup_timer
 
 
+def test_custom_dialog_styles_use_chinese_handwriting_font():
+    calls = {}
+
+    class FakeStyle:
+        def configure(self, style_name, **kwargs):
+            calls[style_name] = kwargs
+
+    standup_timer._configure_custom_dialog_styles(FakeStyle())
+
+    assert standup_timer.CUSTOM_DIALOG_TEXT_FONT[0] == "LXGW WenKai TC"
+    assert standup_timer.CUSTOM_DIALOG_TITLE_FONT[0] == "LXGW WenKai TC"
+    assert standup_timer.CUSTOM_DIALOG_PREVIEW_FONT[0] == "LXGW WenKai TC"
+    assert calls[standup_timer.CUSTOM_DIALOG_LABEL_STYLE]["font"] == standup_timer.CUSTOM_DIALOG_TEXT_FONT
+    assert (
+        calls[standup_timer.CUSTOM_DIALOG_LABELFRAME_STYLE + ".Label"]["font"]
+        == standup_timer.CUSTOM_DIALOG_TEXT_FONT
+    )
+    assert calls[standup_timer.CUSTOM_DIALOG_BUTTON_STYLE]["font"] == standup_timer.CUSTOM_DIALOG_TEXT_FONT
+
+
 def test_center_geometry_expands_to_custom_dialog_minimum():
     geometry = standup_timer._center_geometry(1920, 1080, 280, 140)
     assert geometry == "520x240+700+420"
