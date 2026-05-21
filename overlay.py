@@ -13,7 +13,7 @@ TRANSPARENT_COLOUR = "magenta"
 
 PANEL_INSET = 8
 PANEL_RADIUS = 14
-ACCENT_COLOUR = "#63d5b3"
+ACCENT_COLOUR = "#f29a4a"
 PANEL_FILL = "#11181d"
 PANEL_OUTLINE = "#27343b"
 SHADOW_FILL = "#050708"
@@ -231,14 +231,6 @@ def _compute_paused_label_layout(
     )
 
 
-def _compute_finished_label_layout(
-    work_area: tuple[int, int, int, int],
-    text_width: int,
-    text_height: int,
-) -> PausedLabelLayout:
-    return _compute_paused_label_layout(work_area, text_width, text_height)
-
-
 def _font_measurements(parent: tk.Misc, font_spec: tuple[str, int, str], text: str) -> tuple[int, int]:
     font = tkfont.Font(parent, font=font_spec)
     return font.measure(text), font.metrics("linespace")
@@ -247,10 +239,6 @@ def _font_measurements(parent: tk.Misc, font_spec: tuple[str, int, str], text: s
 def _format_mmss(seconds: int) -> str:
     minutes, seconds = divmod(max(seconds, 0), 60)
     return f"{minutes:02d}:{seconds:02d}"
-
-
-def _finished_label_text() -> str:
-    return "Timer finished 00:00"
 
 
 def _show_status_label(
@@ -324,14 +312,109 @@ def _show_status_label(
 
 
 def show(on_dismiss: Callable[[], None], secondary_text: str, parent: tk.Tk) -> tk.Toplevel:
-    """Show the finished reminder using the compact orange status label."""
-    del secondary_text
-    return _show_status_label(
-        on_click=on_dismiss,
-        text=_finished_label_text(),
-        parent=parent,
-        destroy_before_callback=True,
+    """Show the larger finished reminder. Calls on_dismiss() when clicked."""
+    win = tk.Toplevel(parent)
+    win.overrideredirect(True)
+    win.attributes("-topmost", True)
+    win.attributes("-transparentcolor", TRANSPARENT_COLOUR)
+    win.configure(bg=TRANSPARENT_COLOUR)
+
+    work_area = _get_work_area()
+    primary_width, primary_height = _font_measurements(win, PRIMARY_LINE_FONT, PRIMARY_TEXT)
+    secondary_width, secondary_height = _font_measurements(win, SECONDARY_LINE_FONT, secondary_text)
+    hint_width, hint_height = _font_measurements(win, HINT_LINE_FONT, HINT_TEXT)
+    layout = _compute_layout(
+        work_area=work_area,
+        primary_text_width=primary_width,
+        secondary_text_width=secondary_width,
+        hint_text_width=hint_width,
+        primary_line_height=primary_height,
+        secondary_line_height=secondary_height,
+        hint_line_height=hint_height,
     )
+
+    x, y = _compute_position(work_area, layout.width, layout.height)
+    win.geometry(f"{layout.width}x{layout.height}+{x}+{y}")
+
+    canvas = tk.Canvas(
+        win,
+        width=layout.width,
+        height=layout.height,
+        bg=TRANSPARENT_COLOUR,
+        highlightthickness=0,
+    )
+    canvas.pack()
+
+    panel_bounds = layout.panel_bounds
+    shadow_bounds = (
+        panel_bounds[0] + 2,
+        panel_bounds[1] + 3,
+        panel_bounds[2] + 2,
+        panel_bounds[3] + 3,
+    )
+
+    for bounds, fill, outline, width in (
+        (shadow_bounds, SHADOW_FILL, "", 1),
+        (panel_bounds, PANEL_FILL, PANEL_OUTLINE, 1),
+    ):
+        canvas.create_polygon(
+            _rounded_points(bounds, PANEL_RADIUS),
+            smooth=True,
+            fill=fill,
+            outline=outline,
+            width=width,
+        )
+
+    x0, y0, _, y1 = panel_bounds
+    canvas.create_line(
+        x0 + 14,
+        y0 + 18,
+        x0 + 14,
+        y1 - 18,
+        fill=ACCENT_COLOUR,
+        width=4,
+        capstyle=tk.ROUND,
+    )
+
+    canvas.create_text(
+        layout.text_x,
+        layout.primary_y,
+        anchor="nw",
+        text=PRIMARY_TEXT,
+        font=PRIMARY_LINE_FONT,
+        fill="#ffffff",
+        width=layout.text_width,
+    )
+    canvas.create_text(
+        layout.text_x,
+        layout.secondary_y,
+        anchor="nw",
+        text=secondary_text,
+        font=SECONDARY_LINE_FONT,
+        fill="#cfd8dc",
+        width=layout.text_width,
+    )
+    canvas.create_text(
+        layout.text_x,
+        layout.hint_y,
+        anchor="nw",
+        text=HINT_TEXT,
+        font=HINT_LINE_FONT,
+        fill="#8fa1aa",
+        width=layout.text_width,
+    )
+
+    def dismiss(_event=None):
+        if not win.winfo_exists():
+            return
+        try:
+            on_dismiss()
+        finally:
+            win.destroy()
+
+    canvas.bind("<Button-1>", dismiss)
+    win.bind("<Button-1>", dismiss)
+    return win
 
 
 def show_paused_label(

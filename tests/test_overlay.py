@@ -1,14 +1,14 @@
 import overlay
 from overlay import (
-    _compute_finished_label_layout,
     _compute_layout,
     _compute_paused_label_layout,
     _compute_position,
-    _finished_label_text,
     _panel_bounds,
+    ACCENT_COLOUR,
     MARGIN,
     PAUSED_LABEL_HEIGHT,
     PAUSED_LABEL_MIN_WIDTH,
+    PAUSED_LABEL_DOT_FILL,
     PANEL_INSET,
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
@@ -109,11 +109,15 @@ def test_paused_label_layout_caps_width_to_available_work_area():
     assert layout.text_x < layout.width
 
 
-def test_finished_label_uses_same_compact_layout_as_paused_label():
-    finished = _compute_finished_label_layout(
+def test_finished_reminder_uses_larger_layout_than_paused_label():
+    finished = _compute_layout(
         work_area=(0, 0, 1920, 1040),
-        text_width=140,
-        text_height=18,
+        primary_text_width=220,
+        secondary_text_width=130,
+        hint_text_width=130,
+        primary_line_height=32,
+        secondary_line_height=20,
+        hint_line_height=18,
     )
     paused = _compute_paused_label_layout(
         work_area=(0, 0, 1920, 1040),
@@ -121,39 +125,73 @@ def test_finished_label_uses_same_compact_layout_as_paused_label():
         text_height=18,
     )
 
-    assert finished == paused
+    assert finished.width > paused.width
+    assert finished.height > paused.height
 
 
-def test_finished_label_text_is_compact_status_text():
-    assert _finished_label_text() == "Timer finished 00:00"
+def test_finished_reminder_accent_matches_paused_orange():
+    assert ACCENT_COLOUR == PAUSED_LABEL_DOT_FILL
 
 
-def test_show_uses_compact_status_label_renderer(monkeypatch):
-    calls = []
-    expected_window = object()
+def test_show_uses_full_finished_reminder_renderer(monkeypatch):
+    class FakeWindow:
+        def overrideredirect(self, *_args):
+            return None
 
-    def fake_status_label(**kwargs):
-        calls.append(kwargs)
-        return expected_window
+        def attributes(self, *_args):
+            return None
 
-    monkeypatch.setattr(overlay, "_show_status_label", fake_status_label, raising=False)
+        def configure(self, **_kwargs):
+            return None
 
-    def dismiss():
-        return None
+        def geometry(self, *_args):
+            return None
 
-    parent = object()
+        def bind(self, *_args):
+            return None
+
+        def winfo_exists(self):
+            return True
+
+        def destroy(self):
+            return None
+
+    class FakeCanvas:
+        lines = []
+
+        def __init__(self, *_args, **_kwargs):
+            return None
+
+        def pack(self):
+            return None
+
+        def create_polygon(self, *_args, **_kwargs):
+            return None
+
+        def create_line(self, *_args, **kwargs):
+            self.lines.append(kwargs)
+
+        def create_text(self, *_args, **_kwargs):
+            return None
+
+        def bind(self, *_args):
+            return None
+
+    def fail_compact_renderer(**_kwargs):
+        raise AssertionError("finished reminder should not use compact label renderer")
+
+    fake_window = FakeWindow()
+    monkeypatch.setattr(overlay, "_show_status_label", fail_compact_renderer)
+    monkeypatch.setattr(overlay.tk, "Toplevel", lambda _parent: fake_window)
+    monkeypatch.setattr(overlay.tk, "Canvas", FakeCanvas)
+    monkeypatch.setattr(overlay, "_get_work_area", lambda: (0, 0, 1920, 1040))
+    monkeypatch.setattr(overlay, "_font_measurements", lambda *_args: (120, 20))
+
     result = overlay.show(
-        on_dismiss=dismiss,
+        on_dismiss=lambda: None,
         secondary_text="elapsed 00:05",
-        parent=parent,
+        parent=object(),
     )
 
-    assert result is expected_window
-    assert calls == [
-        {
-            "on_click": dismiss,
-            "text": "Timer finished 00:00",
-            "parent": parent,
-            "destroy_before_callback": True,
-        }
-    ]
+    assert result is fake_window
+    assert any(line.get("fill") == ACCENT_COLOUR for line in FakeCanvas.lines)
