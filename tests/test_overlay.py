@@ -5,13 +5,15 @@ from overlay import (
     _compute_position,
     _panel_bounds,
     ACCENT_COLOUR,
-    HANDWRITING_FONT_FAMILY,
+    CHINESE_HANDWRITING_FONT_FAMILY,
     HINT_LINE_FONT,
+    LATIN_HANDWRITING_FONT_FAMILY,
     MARGIN,
     PAUSED_LABEL_HEIGHT,
     PAUSED_LABEL_MIN_WIDTH,
     PAUSED_LABEL_DOT_FILL,
     PAUSED_LABEL_FONT,
+    PAUSED_LABEL_TEXT_SAFETY_PADDING,
     PANEL_INSET,
     PRIMARY_LINE_FONT,
     SECONDARY_LINE_FONT,
@@ -88,9 +90,10 @@ def test_layout_fits_very_narrow_work_area():
 
 
 def test_paused_label_layout_is_compact():
+    measured_text_width = 120
     layout = _compute_paused_label_layout(
         work_area=(0, 0, 1920, 1040),
-        text_width=120,
+        text_width=measured_text_width,
         text_height=18,
     )
 
@@ -100,6 +103,7 @@ def test_paused_label_layout_is_compact():
     assert layout.panel_bounds[2] <= layout.width
     assert layout.dot_bounds[0] > layout.panel_bounds[0]
     assert layout.text_x > layout.dot_bounds[2]
+    assert layout.text_width >= measured_text_width + PAUSED_LABEL_TEXT_SAFETY_PADDING
 
 
 def test_paused_label_layout_caps_width_to_available_work_area():
@@ -139,11 +143,12 @@ def test_finished_reminder_accent_matches_paused_orange():
 
 
 def test_overlay_fonts_use_handwriting_family():
-    assert HANDWRITING_FONT_FAMILY == "Segoe Print"
-    assert PRIMARY_LINE_FONT[0] == HANDWRITING_FONT_FAMILY
-    assert SECONDARY_LINE_FONT[0] == HANDWRITING_FONT_FAMILY
-    assert HINT_LINE_FONT[0] == HANDWRITING_FONT_FAMILY
-    assert PAUSED_LABEL_FONT[0] == HANDWRITING_FONT_FAMILY
+    assert LATIN_HANDWRITING_FONT_FAMILY == "Segoe Print"
+    assert CHINESE_HANDWRITING_FONT_FAMILY == "標楷體"
+    assert PRIMARY_LINE_FONT[0] == CHINESE_HANDWRITING_FONT_FAMILY
+    assert SECONDARY_LINE_FONT[0] == CHINESE_HANDWRITING_FONT_FAMILY
+    assert HINT_LINE_FONT[0] == CHINESE_HANDWRITING_FONT_FAMILY
+    assert PAUSED_LABEL_FONT[0] == LATIN_HANDWRITING_FONT_FAMILY
 
 
 def test_show_uses_full_finished_reminder_renderer(monkeypatch):
