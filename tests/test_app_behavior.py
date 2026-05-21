@@ -4,6 +4,26 @@ import standup_timer
 from timer import State
 
 
+class FakeWindow:
+    def __init__(self):
+        self.destroyed = False
+
+    def destroy(self):
+        self.destroyed = True
+
+
+def _config(duration_seconds=1500):
+    return SimpleNamespace(
+        duration_seconds=duration_seconds,
+        auto_start=False,
+        save=lambda: None,
+    )
+
+
+def _fake_tray():
+    return SimpleNamespace(icon=None, title="")
+
+
 def test_app_initializes_timer_running(monkeypatch):
     monkeypatch.setattr(
         standup_timer,
@@ -96,3 +116,145 @@ def test_refresh_tray_does_not_rebuild_unchanged_menu(monkeypatch):
     app._refresh_tray()
 
     assert tray.menu_assignments == 0
+
+
+def test_pausing_running_timer_shows_paused_label(monkeypatch):
+    calls = []
+    monkeypatch.setattr(standup_timer, "Config", lambda: _config())
+    monkeypatch.setattr(
+        standup_timer.overlay,
+        "show_paused_label",
+        lambda **kwargs: calls.append(kwargs) or FakeWindow(),
+    )
+
+    app = standup_timer.StandUpApp()
+    app.tk_root = object()
+    app.tray = _fake_tray()
+
+    app.on_start_pause(None, None)
+
+    assert app.timer.state == State.PAUSED
+    assert len(calls) == 1
+    assert calls[0]["remaining_seconds"] == 1500
+    assert calls[0]["parent"] is app.tk_root
+
+
+def test_refresh_while_paused_reuses_existing_paused_label(monkeypatch):
+    calls = []
+    monkeypatch.setattr(standup_timer, "Config", lambda: _config())
+    monkeypatch.setattr(
+        standup_timer.overlay,
+        "show_paused_label",
+        lambda **kwargs: calls.append(kwargs) or FakeWindow(),
+    )
+
+    app = standup_timer.StandUpApp()
+    app.tk_root = object()
+    app.tray = _fake_tray()
+    app.timer.pause()
+
+    app._refresh_tray()
+    app._refresh_tray()
+
+    assert len(calls) == 1
+
+
+def test_starting_from_paused_hides_paused_label(monkeypatch):
+    label = FakeWindow()
+    monkeypatch.setattr(standup_timer, "Config", lambda: _config())
+    monkeypatch.setattr(
+        standup_timer.overlay,
+        "show_paused_label",
+        lambda **_kwargs: label,
+    )
+
+    app = standup_timer.StandUpApp()
+    app.tk_root = object()
+    app.tray = _fake_tray()
+    app.timer.pause()
+    app._refresh_tray()
+
+    app.on_start_pause(None, None)
+
+    assert app.timer.state == State.RUNNING
+    assert label.destroyed
+    assert app._current_paused_label is None
+
+
+def test_dismissing_finished_overlay_shows_paused_label(monkeypatch):
+    dismissed = {}
+    paused_label_calls = []
+    monkeypatch.setattr(standup_timer, "Config", lambda: _config(duration_seconds=1))
+    monkeypatch.setattr(
+        standup_timer.overlay,
+        "show",
+        lambda **kwargs: dismissed.update(on_dismiss=kwargs["on_dismiss"]) or FakeWindow(),
+    )
+    monkeypatch.setattr(
+        standup_timer.overlay,
+        "show_paused_label",
+        lambda **kwargs: paused_label_calls.append(kwargs) or FakeWindow(),
+    )
+
+    app = standup_timer.StandUpApp()
+    app.tk_root = object()
+    app.tray = _fake_tray()
+    app.timer.tick()
+    app._show_overlay(duration_seconds=1)
+
+    dismissed["on_dismiss"]()
+
+    assert app.timer.state == State.PAUSED
+    assert app.timer.remaining_seconds == 0
+    assert len(paused_label_calls) == 1
+    assert paused_label_calls[0]["remaining_seconds"] == 0
+
+
+def test_clicking_paused_label_starts_timer_and_hides_label(monkeypatch):
+    clicked = {}
+    label = FakeWindow()
+    monkeypatch.setattr(standup_timer, "Config", lambda: _config())
+
+    def show_paused_label(**kwargs):
+        clicked["on_click"] = kwargs["on_click"]
+        return label
+
+    monkeypatch.setattr(standup_timer.overlay, "show_paused_label", show_paused_label)
+
+    app = standup_timer.StandUpApp()
+    app.tk_root = object()
+    app.tray = _fake_tray()
+    app.timer.pause()
+    app._refresh_tray()
+
+    clicked["on_click"]()
+
+    assert app.timer.state == State.RUNNING
+    assert label.destroyed
+    assert app._current_paused_label is None
+
+
+def test_paused_label_updates_when_paused_duration_changes(monkeypatch):
+    windows = []
+    calls = []
+    monkeypatch.setattr(standup_timer, "Config", lambda: _config())
+
+    def show_paused_label(**kwargs):
+        calls.append(kwargs)
+        window = FakeWindow()
+        windows.append(window)
+        return window
+
+    monkeypatch.setattr(standup_timer.overlay, "show_paused_label", show_paused_label)
+
+    app = standup_timer.StandUpApp()
+    app.tk_root = object()
+    app.tray = _fake_tray()
+    app.timer.pause()
+    app._refresh_tray()
+
+    app._change_duration(600)
+
+    assert [call["remaining_seconds"] for call in calls] == [1500, 600]
+    assert windows[0].destroyed
+    assert not windows[1].destroyed

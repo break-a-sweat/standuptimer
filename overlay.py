@@ -28,6 +28,20 @@ PRIMARY_LINE_FONT = ("Microsoft JhengHei UI", 22, "bold")
 SECONDARY_LINE_FONT = ("Microsoft JhengHei UI", 12, "normal")
 HINT_LINE_FONT = ("Microsoft JhengHei UI", 10, "normal")
 
+PAUSED_LABEL_MIN_WIDTH = 132
+PAUSED_LABEL_HEIGHT = 34
+PAUSED_LABEL_PANEL_INSET = 3
+PAUSED_LABEL_RADIUS = 13
+PAUSED_LABEL_DOT_SIZE = 7
+PAUSED_LABEL_DOT_LEFT_PADDING = 11
+PAUSED_LABEL_DOT_TEXT_GAP = 8
+PAUSED_LABEL_TEXT_RIGHT_PADDING = 11
+PAUSED_LABEL_FONT = ("Microsoft JhengHei UI", 10, "normal")
+PAUSED_LABEL_FILL = "#1b2227"
+PAUSED_LABEL_OUTLINE = "#344148"
+PAUSED_LABEL_DOT_FILL = "#f29a4a"
+PAUSED_LABEL_TEXT_FILL = "#edf4f5"
+
 PRIMARY_TEXT = "站起來動一動"
 HINT_TEXT = "點一下暫停提醒"
 
@@ -42,6 +56,17 @@ class OverlayLayout:
     primary_y: int
     secondary_y: int
     hint_y: int
+
+
+@dataclass(frozen=True)
+class PausedLabelLayout:
+    width: int
+    height: int
+    panel_bounds: tuple[int, int, int, int]
+    dot_bounds: tuple[int, int, int, int]
+    text_x: int
+    text_y: int
+    text_width: int
 
 
 def _get_work_area() -> tuple[int, int, int, int]:
@@ -75,6 +100,37 @@ def _panel_bounds(
         PANEL_INSET,
         window_width - PANEL_INSET,
         window_height - PANEL_INSET,
+    )
+
+
+def _rounded_points(bounds: tuple[int, int, int, int], radius: int) -> tuple[int, ...]:
+    x0, y0, x1, y1 = bounds
+    radius = min(radius, (x1 - x0) // 2, (y1 - y0) // 2)
+    return (
+        x0 + radius,
+        y0,
+        x1 - radius,
+        y0,
+        x1,
+        y0,
+        x1,
+        y0 + radius,
+        x1,
+        y1 - radius,
+        x1,
+        y1,
+        x1 - radius,
+        y1,
+        x0 + radius,
+        y1,
+        x0,
+        y1,
+        x0,
+        y1 - radius,
+        x0,
+        y0 + radius,
+        x0,
+        y0,
     )
 
 
@@ -127,9 +183,62 @@ def _compute_layout(
     )
 
 
+def _compute_paused_label_layout(
+    work_area: tuple[int, int, int, int],
+    text_width: int,
+    text_height: int,
+) -> PausedLabelLayout:
+    left, _, right, _ = work_area
+    available_width = max(1, (right - left) - (MARGIN * 2))
+    required_width = (
+        PAUSED_LABEL_PANEL_INSET
+        + PAUSED_LABEL_DOT_LEFT_PADDING
+        + PAUSED_LABEL_DOT_SIZE
+        + PAUSED_LABEL_DOT_TEXT_GAP
+        + text_width
+        + PAUSED_LABEL_TEXT_RIGHT_PADDING
+        + PAUSED_LABEL_PANEL_INSET
+    )
+    width = min(max(PAUSED_LABEL_MIN_WIDTH, required_width), available_width)
+    height = PAUSED_LABEL_HEIGHT
+    panel_bounds = (
+        PAUSED_LABEL_PANEL_INSET,
+        PAUSED_LABEL_PANEL_INSET,
+        width - PAUSED_LABEL_PANEL_INSET,
+        height - PAUSED_LABEL_PANEL_INSET,
+    )
+    panel_left, _, panel_right, _ = panel_bounds
+    dot_left = panel_left + PAUSED_LABEL_DOT_LEFT_PADDING
+    dot_top = (height - PAUSED_LABEL_DOT_SIZE) // 2
+    dot_bounds = (
+        dot_left,
+        dot_top,
+        dot_left + PAUSED_LABEL_DOT_SIZE,
+        dot_top + PAUSED_LABEL_DOT_SIZE,
+    )
+    text_x = dot_bounds[2] + PAUSED_LABEL_DOT_TEXT_GAP
+    text_y = max(PAUSED_LABEL_PANEL_INSET, (height - text_height) // 2)
+    label_text_width = max(1, panel_right - text_x - PAUSED_LABEL_TEXT_RIGHT_PADDING)
+
+    return PausedLabelLayout(
+        width=width,
+        height=height,
+        panel_bounds=panel_bounds,
+        dot_bounds=dot_bounds,
+        text_x=text_x,
+        text_y=text_y,
+        text_width=label_text_width,
+    )
+
+
 def _font_measurements(parent: tk.Misc, font_spec: tuple[str, int, str], text: str) -> tuple[int, int]:
     font = tkfont.Font(parent, font=font_spec)
     return font.measure(text), font.metrics("linespace")
+
+
+def _format_mmss(seconds: int) -> str:
+    minutes, seconds = divmod(max(seconds, 0), 60)
+    return f"{minutes:02d}:{seconds:02d}"
 
 
 def show(on_dismiss: Callable[[], None], secondary_text: str, parent: tk.Tk) -> tk.Toplevel:
@@ -269,4 +378,70 @@ def show(on_dismiss: Callable[[], None], secondary_text: str, parent: tk.Tk) -> 
 
     canvas.bind("<Button-1>", dismiss)
     win.bind("<Button-1>", dismiss)
+    return win
+
+
+def show_paused_label(
+    on_click: Callable[[], None],
+    remaining_seconds: int,
+    parent: tk.Tk,
+) -> tk.Toplevel:
+    win = tk.Toplevel(parent)
+    win.overrideredirect(True)
+    win.attributes("-topmost", True)
+    win.attributes("-transparentcolor", TRANSPARENT_COLOUR)
+    try:
+        win.attributes("-alpha", 0.88)
+    except tk.TclError:
+        pass
+    win.configure(bg=TRANSPARENT_COLOUR)
+
+    text = f"Timer paused {_format_mmss(remaining_seconds)}"
+    work_area = _get_work_area()
+    text_width, text_height = _font_measurements(win, PAUSED_LABEL_FONT, text)
+    layout = _compute_paused_label_layout(work_area, text_width, text_height)
+    x, y = _compute_position(work_area, layout.width, layout.height)
+    win.geometry(f"{layout.width}x{layout.height}+{x}+{y}")
+
+    canvas = tk.Canvas(
+        win,
+        width=layout.width,
+        height=layout.height,
+        bg=TRANSPARENT_COLOUR,
+        highlightthickness=0,
+    )
+    canvas.pack()
+    canvas.create_polygon(
+        _rounded_points(layout.panel_bounds, PAUSED_LABEL_RADIUS),
+        smooth=True,
+        fill=PAUSED_LABEL_FILL,
+        outline=PAUSED_LABEL_OUTLINE,
+        width=1,
+    )
+    canvas.create_oval(
+        *layout.dot_bounds,
+        fill=PAUSED_LABEL_DOT_FILL,
+        outline=PAUSED_LABEL_DOT_FILL,
+    )
+    canvas.create_text(
+        layout.text_x,
+        layout.text_y,
+        anchor="nw",
+        text=text,
+        font=PAUSED_LABEL_FONT,
+        fill=PAUSED_LABEL_TEXT_FILL,
+        width=layout.text_width,
+    )
+
+    def click(_event=None):
+        if not win.winfo_exists():
+            return
+        try:
+            on_click()
+        finally:
+            if win.winfo_exists():
+                win.destroy()
+
+    canvas.bind("<Button-1>", click)
+    win.bind("<Button-1>", click)
     return win

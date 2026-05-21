@@ -1,8 +1,11 @@
 from overlay import (
     _compute_layout,
+    _compute_paused_label_layout,
     _compute_position,
     _panel_bounds,
     MARGIN,
+    PAUSED_LABEL_HEIGHT,
+    PAUSED_LABEL_MIN_WIDTH,
     PANEL_INSET,
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
@@ -74,3 +77,30 @@ def test_layout_fits_very_narrow_work_area():
 
     assert layout.width <= 180 - (MARGIN * 2)
     assert layout.text_width > 0
+
+
+def test_paused_label_layout_is_compact():
+    layout = _compute_paused_label_layout(
+        work_area=(0, 0, 1920, 1040),
+        text_width=120,
+        text_height=18,
+    )
+
+    assert layout.width >= PAUSED_LABEL_MIN_WIDTH
+    assert layout.height == PAUSED_LABEL_HEIGHT
+    assert layout.panel_bounds[0] >= 0
+    assert layout.panel_bounds[2] <= layout.width
+    assert layout.dot_bounds[0] > layout.panel_bounds[0]
+    assert layout.text_x > layout.dot_bounds[2]
+
+
+def test_paused_label_layout_caps_width_to_available_work_area():
+    layout = _compute_paused_label_layout(
+        work_area=(0, 0, 160, 600),
+        text_width=400,
+        text_height=18,
+    )
+
+    assert layout.width <= 160 - (MARGIN * 2)
+    assert layout.text_width > 0
+    assert layout.text_x < layout.width

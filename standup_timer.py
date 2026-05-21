@@ -97,6 +97,8 @@ class StandUpApp:
         self.tk_root: tk.Tk | None = None
         self._stop = threading.Event()
         self._current_overlay: tk.Toplevel | None = None
+        self._current_paused_label: tk.Toplevel | None = None
+        self._paused_label_remaining_seconds: int | None = None
         self._last_icon_key: tuple[State, str] | None = None
 
     # ---------- tray actions ----------
@@ -142,6 +144,7 @@ class StandUpApp:
 
     def on_quit(self, icon, item):
         self._stop.set()
+        self._destroy_paused_label()
         if self.tray:
             self.tray.stop()
         if self.tk_root:
@@ -341,6 +344,50 @@ class StandUpApp:
             except Exception:
                 logging.exception("Failed to show tray notification")
 
+    def _on_paused_label_click(self):
+        self.timer.start()
+        self._sync_paused_label()
+        self._refresh_tray()
+
+    def _destroy_paused_label(self):
+        if self._current_paused_label is None:
+            self._paused_label_remaining_seconds = None
+            return
+        try:
+            self._current_paused_label.destroy()
+        except tk.TclError:
+            logging.exception("Failed to destroy paused label")
+        self._current_paused_label = None
+        self._paused_label_remaining_seconds = None
+
+    def _sync_paused_label(self):
+        if self.timer.state != State.PAUSED:
+            self._destroy_paused_label()
+            return
+        if self.tk_root is None:
+            return
+        if (
+            self._current_paused_label is not None
+            and self._paused_label_remaining_seconds == self.timer.remaining_seconds
+        ):
+            return
+        self._destroy_paused_label()
+        try:
+            self._current_paused_label = overlay.show_paused_label(
+                on_click=self._on_paused_label_click,
+                remaining_seconds=self.timer.remaining_seconds,
+                parent=self.tk_root,
+            )
+            self._paused_label_remaining_seconds = self.timer.remaining_seconds
+        except tk.TclError:
+            logging.exception("Failed to show paused label")
+
+    def _schedule_paused_label_sync(self):
+        if self.tk_root is not None and hasattr(self.tk_root, "after"):
+            self.tk_root.after(0, self._sync_paused_label)
+        else:
+            self._sync_paused_label()
+
     def _icon_label(self) -> str:
         if self.timer.state in (State.RUNNING, State.PAUSED):
             return _format_mmss(self.timer.remaining_seconds)
@@ -359,6 +406,7 @@ class StandUpApp:
         )
 
     def _refresh_tray(self):
+        self._schedule_paused_label_sync()
         if self.tray is None:
             return
         state = self.timer.state
