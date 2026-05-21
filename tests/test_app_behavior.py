@@ -210,6 +210,39 @@ def test_dismissing_finished_overlay_shows_paused_label(monkeypatch):
     assert paused_label_calls[0]["remaining_seconds"] == 0
 
 
+def test_dismissing_finished_overlay_after_duration_change_still_pauses(monkeypatch):
+    dismissed = {}
+    paused_label_calls = []
+    monkeypatch.setattr(standup_timer, "Config", lambda: _config(duration_seconds=5))
+    monkeypatch.setattr(
+        standup_timer.overlay,
+        "show",
+        lambda **kwargs: dismissed.update(on_dismiss=kwargs["on_dismiss"]) or FakeWindow(),
+    )
+    monkeypatch.setattr(
+        standup_timer.overlay,
+        "show_paused_label",
+        lambda **kwargs: paused_label_calls.append(kwargs) or FakeWindow(),
+    )
+
+    app = standup_timer.StandUpApp()
+    app.tk_root = object()
+    app.tray = _fake_tray()
+    for _ in range(5):
+        app.timer.tick()
+    app._show_overlay(duration_seconds=5)
+
+    app._change_duration(1500)
+    dismissed["on_dismiss"]()
+
+    assert app.config.duration_seconds == 1500
+    assert app.timer.duration_seconds == 1500
+    assert app.timer.state == State.PAUSED
+    assert app.timer.remaining_seconds == 0
+    assert len(paused_label_calls) == 1
+    assert paused_label_calls[0]["remaining_seconds"] == 0
+
+
 def test_clicking_paused_label_starts_timer_and_hides_label(monkeypatch):
     clicked = {}
     label = FakeWindow()

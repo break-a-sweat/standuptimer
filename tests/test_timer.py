@@ -124,6 +124,17 @@ def test_dismiss_from_finished_pauses_at_zero():
     assert t.remaining_seconds == 0
 
 
+def test_force_dismiss_pauses_at_zero_when_finished_reminder_was_still_visible():
+    t = TimerState(duration_seconds=10)
+    t.change_duration(1500)
+
+    t.dismiss(force=True)
+
+    assert t.duration_seconds == 1500
+    assert t.state == State.PAUSED
+    assert t.remaining_seconds == 0
+
+
 def test_start_from_paused_at_zero_restarts_full_countdown():
     t = TimerState(duration_seconds=10)
     t.state = State.PAUSED

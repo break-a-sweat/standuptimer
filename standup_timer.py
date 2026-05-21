@@ -316,7 +316,7 @@ class StandUpApp:
             self._current_overlay = None
 
         def on_dismiss():
-            self.timer.dismiss()
+            self.timer.dismiss(force=self.timer.state == State.IDLE)
             self._current_overlay = None
             self._refresh_tray()
 
