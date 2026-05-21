@@ -1,6 +1,6 @@
 from PIL import Image
 
-from icon import _FONT_CANDIDATES, _FONT_SIZE, make_icon, SIZE
+from icon import _FONT_CANDIDATES, _FONT_SIZE, _split_label_lines, make_icon, SIZE
 from timer import State
 
 
@@ -43,6 +43,12 @@ def test_icon_font_prefers_handwriting_font():
     assert _FONT_SIZE >= 20
 
 
+def test_split_label_lines_splits_minutes_and_seconds():
+    assert _split_label_lines("24:41") == ("24", "41")
+    assert _split_label_lines("1:02") == ("1", "02")
+    assert _split_label_lines("idle") == ("idle",)
+
+
 def test_make_icon_text_stays_inside_canvas_with_margin():
     img = make_icon(State.RUNNING, "00:00")
     visible_points = [
@@ -53,9 +59,29 @@ def test_make_icon_text_stays_inside_canvas_with_margin():
     ]
     left = min(x for x, _y in visible_points)
     right = max(x for x, _y in visible_points)
+    top = min(y for _x, y in visible_points)
+    bottom = max(y for _x, y in visible_points)
 
     assert left >= 2
     assert right <= SIZE - 3
+    assert top >= 2
+    assert bottom <= SIZE - 3
+
+
+def test_make_icon_draws_minutes_above_seconds():
+    img = make_icon(State.RUNNING, "24:41")
+    visible_points = [
+        (x, y)
+        for y in range(img.height)
+        for x in range(img.width)
+        if img.getpixel((x, y))[3] > 0
+    ]
+    upper_pixels = [point for point in visible_points if point[1] < SIZE // 2]
+    lower_pixels = [point for point in visible_points if point[1] > SIZE // 2]
+
+    assert upper_pixels
+    assert lower_pixels
+    assert max(y for _x, y in upper_pixels) < min(y for _x, y in lower_pixels)
 
 
 def test_make_icon_different_labels_produce_different_images():

@@ -50,12 +50,22 @@ def _text_size(label: str, font: ImageFont.ImageFont) -> tuple[int, int]:
     return right - left, bottom - top
 
 
-def _font_for_label(label: str) -> ImageFont.ImageFont:
+def _split_label_lines(label: str) -> tuple[str, ...]:
+    minutes, separator, seconds = label.partition(":")
+    if separator:
+        return minutes, seconds
+    return (label,)
+
+
+def _font_for_lines(lines: tuple[str, ...]) -> ImageFont.ImageFont:
     max_width = SIZE - 4
-    max_height = SIZE - 4
-    for font_size in range(_FONT_SIZE, 11, -1):
+    line_gap = 0 if len(lines) == 1 else 2
+    max_height = SIZE - 4 - (line_gap * (len(lines) - 1))
+    for font_size in range(_FONT_SIZE + 8, 11, -1):
         font = _load_font(font_size)
-        width, height = _text_size(label, font)
+        measurements = [_text_size(line, font) for line in lines]
+        width = max(line_width for line_width, _line_height in measurements)
+        height = sum(line_height for _line_width, line_height in measurements)
         if width <= max_width and height <= max_height:
             return font
     return _load_font(12)
@@ -63,13 +73,23 @@ def _font_for_label(label: str) -> ImageFont.ImageFont:
 
 def make_icon(state: State, label: str) -> Image.Image:
     del state
+    lines = _split_label_lines(label)
+    font = _font_for_lines(lines)
+    measurements = [_text_size(line, font) for line in lines]
+    line_gap = 0 if len(lines) == 1 else 2
+    total_height = sum(height for _width, height in measurements) + (
+        line_gap * (len(lines) - 1)
+    )
     img = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    draw.text(
-        (SIZE // 2, SIZE // 2),
-        label,
-        font=_font_for_label(label),
-        fill=(0, 0, 0, 255),
-        anchor="mm",
-    )
+    y = (SIZE - total_height) / 2
+    for line, (_width, height) in zip(lines, measurements):
+        draw.text(
+            (SIZE // 2, y + (height / 2)),
+            line,
+            font=font,
+            fill=(0, 0, 0, 255),
+            anchor="mm",
+        )
+        y += height + line_gap
     return img

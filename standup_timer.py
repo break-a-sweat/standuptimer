@@ -14,6 +14,7 @@ from pystray import MenuItem as Item, Menu
 import autostart
 import icon as icon_module
 import overlay
+import single_instance
 from config import Config
 from timer import State, TimerState
 
@@ -22,6 +23,7 @@ CUSTOM_DIALOG_MIN_WIDTH = 520
 CUSTOM_DIALOG_MIN_HEIGHT = 240
 CUSTOM_DIALOG_SCREEN_MARGIN = 32
 LOG_PATH = Path(os.environ.get("APPDATA", str(Path.home()))) / "standuptimer" / "standuptimer.log"
+PID_PATH = LOG_PATH.with_suffix(".pid")
 
 
 def _setup_logging() -> None:
@@ -454,11 +456,14 @@ class StandUpApp:
 
 def main():
     _setup_logging()
+    single_instance.replace_existing_instance(PID_PATH)
     try:
         StandUpApp().run()
     except Exception:
         logging.exception("Fatal error")
         raise
+    finally:
+        single_instance.release_instance(PID_PATH)
 
 
 if __name__ == "__main__":

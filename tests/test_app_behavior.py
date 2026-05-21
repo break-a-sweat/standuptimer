@@ -319,3 +319,33 @@ def test_paused_label_updates_when_paused_duration_changes(monkeypatch):
     assert [call["remaining_seconds"] for call in calls] == [1500, 600]
     assert windows[0].destroyed
     assert not windows[1].destroyed
+
+
+def test_main_replaces_existing_instance_and_releases_pid_file(monkeypatch):
+    calls = []
+
+    class FakeApp:
+        def run(self):
+            calls.append("run")
+
+    monkeypatch.setattr(standup_timer, "_setup_logging", lambda: calls.append("log"))
+    monkeypatch.setattr(standup_timer, "StandUpApp", FakeApp)
+    monkeypatch.setattr(
+        standup_timer.single_instance,
+        "replace_existing_instance",
+        lambda pid_file: calls.append(("replace", pid_file)),
+    )
+    monkeypatch.setattr(
+        standup_timer.single_instance,
+        "release_instance",
+        lambda pid_file: calls.append(("release", pid_file)),
+    )
+
+    standup_timer.main()
+
+    assert calls == [
+        "log",
+        ("replace", standup_timer.PID_PATH),
+        "run",
+        ("release", standup_timer.PID_PATH),
+    ]
