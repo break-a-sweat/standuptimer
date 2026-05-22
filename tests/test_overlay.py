@@ -9,10 +9,14 @@ from overlay import (
     HINT_LINE_FONT,
     LATIN_HANDWRITING_FONT_FAMILY,
     MARGIN,
+    PAUSED_LABEL_DOT_LEFT_PADDING,
+    PAUSED_LABEL_DOT_SIZE,
+    PAUSED_LABEL_DOT_TEXT_GAP,
     PAUSED_LABEL_HEIGHT,
     PAUSED_LABEL_MIN_WIDTH,
     PAUSED_LABEL_DOT_FILL,
     PAUSED_LABEL_FONT,
+    PAUSED_LABEL_TEXT_RIGHT_PADDING,
     PAUSED_LABEL_TEXT_SAFETY_PADDING,
     PANEL_INSET,
     PRIMARY_LINE_FONT,
@@ -89,8 +93,18 @@ def test_layout_fits_very_narrow_work_area():
     assert layout.text_width > 0
 
 
+def test_paused_label_constants_match_redesigned_play_button():
+    assert PAUSED_LABEL_DOT_SIZE == 24
+    assert PAUSED_LABEL_HEIGHT == 44
+    assert PAUSED_LABEL_MIN_WIDTH == 96
+    assert PAUSED_LABEL_DOT_LEFT_PADDING == 8
+    assert PAUSED_LABEL_DOT_TEXT_GAP == 10
+    assert PAUSED_LABEL_TEXT_RIGHT_PADDING == 14
+    assert PAUSED_LABEL_TEXT_SAFETY_PADDING == 0
+
+
 def test_paused_label_layout_is_compact():
-    measured_text_width = 120
+    measured_text_width = 60  # roughly the width of "MM:SS" at size 10
     layout = _compute_paused_label_layout(
         work_area=(0, 0, 1920, 1040),
         text_width=measured_text_width,
@@ -101,9 +115,13 @@ def test_paused_label_layout_is_compact():
     assert layout.height == PAUSED_LABEL_HEIGHT
     assert layout.panel_bounds[0] >= 0
     assert layout.panel_bounds[2] <= layout.width
+    dot_width = layout.dot_bounds[2] - layout.dot_bounds[0]
+    dot_height = layout.dot_bounds[3] - layout.dot_bounds[1]
+    assert dot_width == PAUSED_LABEL_DOT_SIZE
+    assert dot_height == PAUSED_LABEL_DOT_SIZE
     assert layout.dot_bounds[0] > layout.panel_bounds[0]
     assert layout.text_x > layout.dot_bounds[2]
-    assert layout.text_width >= measured_text_width + PAUSED_LABEL_TEXT_SAFETY_PADDING
+    assert layout.text_width >= measured_text_width
 
 
 def test_paused_label_layout_keeps_handwriting_text_away_from_window_edges():
