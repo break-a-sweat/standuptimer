@@ -4,6 +4,7 @@ from overlay import (
     _compute_paused_label_layout,
     _compute_position,
     _panel_bounds,
+    _play_triangle_points,
     ACCENT_COLOUR,
     CHINESE_HANDWRITING_FONT_FAMILY,
     HINT_LINE_FONT,
@@ -18,6 +19,10 @@ from overlay import (
     PAUSED_LABEL_FONT,
     PAUSED_LABEL_TEXT_RIGHT_PADDING,
     PAUSED_LABEL_TEXT_SAFETY_PADDING,
+    PAUSED_LABEL_TRIANGLE_FILL,
+    PAUSED_LABEL_TRIANGLE_HEIGHT,
+    PAUSED_LABEL_TRIANGLE_OPTICAL_NUDGE,
+    PAUSED_LABEL_TRIANGLE_WIDTH,
     PANEL_INSET,
     PRIMARY_LINE_FONT,
     SECONDARY_LINE_FONT,
@@ -246,3 +251,45 @@ def test_show_uses_full_finished_reminder_renderer(monkeypatch):
 
     assert result is fake_window
     assert any(line.get("fill") == ACCENT_COLOUR for line in FakeCanvas.lines)
+
+
+def test_play_triangle_points_fit_inside_circle_and_nudge_right():
+    dot_bounds = (10, 10, 34, 34)  # 24x24 circle at (10,10)
+    points = _play_triangle_points(dot_bounds)
+
+    assert len(points) == 6  # 3 (x, y) pairs
+    xs = points[0::2]
+    ys = points[1::2]
+
+    circle_left, circle_top, circle_right, circle_bottom = dot_bounds
+    for x, y in zip(xs, ys):
+        assert circle_left <= x <= circle_right
+        assert circle_top <= y <= circle_bottom
+
+    # Right-pointing isoceles triangle: two points share the smaller x (vertical base),
+    # one point sits at the larger x (apex).
+    base_x = min(xs)
+    apex_x = max(xs)
+    assert xs.count(base_x) == 2
+    assert xs.count(apex_x) == 1
+    assert apex_x - base_x == PAUSED_LABEL_TRIANGLE_WIDTH
+
+    # Base is shifted right of the circle's geometric centre by the optical nudge.
+    circle_center_x = (circle_left + circle_right) // 2
+    expected_base_x = (
+        circle_center_x
+        + PAUSED_LABEL_TRIANGLE_OPTICAL_NUDGE
+        - (PAUSED_LABEL_TRIANGLE_WIDTH // 2)
+    )
+    assert base_x == expected_base_x
+
+    # The two base points are vertically separated by TRIANGLE_HEIGHT and
+    # mirrored around the circle's vertical centre.
+    base_ys = sorted(y for x, y in zip(xs, ys) if x == base_x)
+    assert base_ys[1] - base_ys[0] == PAUSED_LABEL_TRIANGLE_HEIGHT
+    circle_center_y = (circle_top + circle_bottom) // 2
+    assert (base_ys[0] + base_ys[1]) // 2 == circle_center_y
+
+    # Apex sits on the circle's horizontal centreline.
+    apex_y = next(y for x, y in zip(xs, ys) if x == apex_x)
+    assert apex_y == circle_center_y

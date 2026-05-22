@@ -44,6 +44,10 @@ PAUSED_LABEL_FILL = "#1b2227"
 PAUSED_LABEL_OUTLINE = "#344148"
 PAUSED_LABEL_DOT_FILL = "#f29a4a"
 PAUSED_LABEL_TEXT_FILL = "#edf4f5"
+PAUSED_LABEL_TRIANGLE_FILL = "#11181d"
+PAUSED_LABEL_TRIANGLE_WIDTH = 9
+PAUSED_LABEL_TRIANGLE_HEIGHT = 10
+PAUSED_LABEL_TRIANGLE_OPTICAL_NUDGE = 1
 
 PRIMARY_TEXT = "站起來動一動"
 HINT_TEXT = "點一下暫停提醒"
@@ -139,6 +143,25 @@ def _rounded_points(bounds: tuple[int, int, int, int], radius: int) -> tuple[int
 
 def _wrapped_line_count(text_width: int, available_width: int) -> int:
     return max(1, math.ceil(max(1, text_width) / max(1, available_width)))
+
+
+def _play_triangle_points(dot_bounds: tuple[int, int, int, int]) -> tuple[int, ...]:
+    """Return polygon points for a right-pointing isoceles triangle, optically centred in dot_bounds."""
+    circle_left, circle_top, circle_right, circle_bottom = dot_bounds
+    circle_center_x = (circle_left + circle_right) // 2
+    circle_center_y = (circle_top + circle_bottom) // 2
+    geometric_center_x = circle_center_x + PAUSED_LABEL_TRIANGLE_OPTICAL_NUDGE
+    half_width = PAUSED_LABEL_TRIANGLE_WIDTH // 2
+    half_height = PAUSED_LABEL_TRIANGLE_HEIGHT // 2
+    base_x = geometric_center_x - half_width
+    apex_x = base_x + PAUSED_LABEL_TRIANGLE_WIDTH
+    top_y = circle_center_y - half_height
+    bottom_y = top_y + PAUSED_LABEL_TRIANGLE_HEIGHT
+    return (
+        base_x, top_y,
+        base_x, bottom_y,
+        apex_x, circle_center_y,
+    )
 
 
 def _compute_layout(
@@ -286,6 +309,11 @@ def _show_status_label(
         *layout.dot_bounds,
         fill=PAUSED_LABEL_DOT_FILL,
         outline=PAUSED_LABEL_DOT_FILL,
+    )
+    canvas.create_polygon(
+        _play_triangle_points(layout.dot_bounds),
+        fill=PAUSED_LABEL_TRIANGLE_FILL,
+        outline=PAUSED_LABEL_TRIANGLE_FILL,
     )
     canvas.create_text(
         layout.text_x,
