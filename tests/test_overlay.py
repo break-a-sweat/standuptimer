@@ -253,6 +253,29 @@ def test_show_uses_full_finished_reminder_renderer(monkeypatch):
     assert any(line.get("fill") == ACCENT_COLOUR for line in FakeCanvas.lines)
 
 
+def test_show_paused_label_uses_bare_mmss_text(monkeypatch):
+    captured = {}
+
+    def fake_status_label(*, on_click, text, parent, destroy_before_callback=False):
+        captured["text"] = text
+        captured["on_click"] = on_click
+        captured["parent"] = parent
+        captured["destroy_before_callback"] = destroy_before_callback
+        return object()
+
+    monkeypatch.setattr(overlay, "_show_status_label", fake_status_label)
+
+    sentinel_parent = object()
+    overlay.show_paused_label(
+        on_click=lambda: None,
+        remaining_seconds=754,  # 12:34
+        parent=sentinel_parent,
+    )
+
+    assert captured["text"] == "12:34"
+    assert captured["parent"] is sentinel_parent
+
+
 def test_play_triangle_points_fit_inside_circle_and_nudge_right():
     dot_bounds = (10, 10, 34, 34)  # 24x24 circle at (10,10)
     points = _play_triangle_points(dot_bounds)

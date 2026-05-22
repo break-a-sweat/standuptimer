@@ -456,6 +456,6 @@ def show_paused_label(
 ) -> tk.Toplevel:
     return _show_status_label(
         on_click=on_click,
-        text=f"Timer paused {_format_mmss(remaining_seconds)}",
+        text=_format_mmss(remaining_seconds),
         parent=parent,
     )
