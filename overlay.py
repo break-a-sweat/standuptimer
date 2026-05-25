@@ -216,17 +216,28 @@ def _compute_paused_label_layout(
 ) -> PausedLabelLayout:
     left, _, right, _ = work_area
     available_width = max(1, (right - left) - (MARGIN * 2))
-    required_width = (
-        PAUSED_LABEL_PANEL_INSET
-        + PAUSED_LABEL_DOT_LEFT_PADDING
-        + PAUSED_LABEL_DOT_SIZE
-        + PAUSED_LABEL_DOT_TEXT_GAP
-        + text_width
-        + PAUSED_LABEL_TEXT_SAFETY_PADDING
-        + PAUSED_LABEL_TEXT_RIGHT_PADDING
-        + PAUSED_LABEL_PANEL_INSET
-    )
-    width = min(max(PAUSED_LABEL_MIN_WIDTH, required_width), available_width)
+    has_text = text_width > 0
+    if has_text:
+        required_width = (
+            PAUSED_LABEL_PANEL_INSET
+            + PAUSED_LABEL_DOT_LEFT_PADDING
+            + PAUSED_LABEL_DOT_SIZE
+            + PAUSED_LABEL_DOT_TEXT_GAP
+            + text_width
+            + PAUSED_LABEL_TEXT_SAFETY_PADDING
+            + PAUSED_LABEL_TEXT_RIGHT_PADDING
+            + PAUSED_LABEL_PANEL_INSET
+        )
+        width = min(max(PAUSED_LABEL_MIN_WIDTH, required_width), available_width)
+    else:
+        required_width = (
+            PAUSED_LABEL_PANEL_INSET
+            + PAUSED_LABEL_DOT_LEFT_PADDING
+            + PAUSED_LABEL_DOT_SIZE
+            + PAUSED_LABEL_DOT_LEFT_PADDING
+            + PAUSED_LABEL_PANEL_INSET
+        )
+        width = min(required_width, available_width)
     height = PAUSED_LABEL_HEIGHT
     panel_bounds = (
         PAUSED_LABEL_PANEL_INSET,
@@ -245,7 +256,11 @@ def _compute_paused_label_layout(
     )
     text_x = dot_bounds[2] + PAUSED_LABEL_DOT_TEXT_GAP
     text_y = max(PAUSED_LABEL_PANEL_INSET, (height - text_height) // 2)
-    label_text_width = max(1, panel_right - text_x - PAUSED_LABEL_TEXT_RIGHT_PADDING)
+    label_text_width = (
+        max(1, panel_right - text_x - PAUSED_LABEL_TEXT_RIGHT_PADDING)
+        if has_text
+        else 0
+    )
 
     return PausedLabelLayout(
         width=width,
@@ -315,15 +330,16 @@ def _show_status_label(
         fill=PAUSED_LABEL_TRIANGLE_FILL,
         outline=PAUSED_LABEL_TRIANGLE_FILL,
     )
-    canvas.create_text(
-        layout.text_x,
-        layout.text_y,
-        anchor="nw",
-        text=text,
-        font=PAUSED_LABEL_FONT,
-        fill=PAUSED_LABEL_TEXT_FILL,
-        width=layout.text_width,
-    )
+    if text:
+        canvas.create_text(
+            layout.text_x,
+            layout.text_y,
+            anchor="nw",
+            text=text,
+            font=PAUSED_LABEL_FONT,
+            fill=PAUSED_LABEL_TEXT_FILL,
+            width=layout.text_width,
+        )
 
     def click(_event=None):
         if not win.winfo_exists():
@@ -451,11 +467,11 @@ def show(on_dismiss: Callable[[], None], secondary_text: str, parent: tk.Tk) -> 
 
 def show_paused_label(
     on_click: Callable[[], None],
-    remaining_seconds: int,
+    remaining_seconds: int | None,
     parent: tk.Tk,
 ) -> tk.Toplevel:
     return _show_status_label(
         on_click=on_click,
-        text=_format_mmss(remaining_seconds),
+        text="" if remaining_seconds is None else _format_mmss(remaining_seconds),
         parent=parent,
     )

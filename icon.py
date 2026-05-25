@@ -7,7 +7,11 @@ from PIL import Image, ImageDraw, ImageFont
 from timer import State
 
 SIZE = 64
-_FONT_SIZE = 22
+_FONT_SIZE = 29
+_BLACK = (0, 0, 0, 255)
+_RESET_COLOUR = (56, 70, 84, 255)
+_RESET_FONT_SIZE = 52
+_RESET_GLYPH = "\ue72c"
 
 
 @dataclass(frozen=True)
@@ -41,6 +45,17 @@ def _load_font(font_size: int = _FONT_SIZE) -> ImageFont.ImageFont:
             except OSError:
                 continue
     return ImageFont.load_default()
+
+
+@lru_cache(maxsize=None)
+def _load_reset_font() -> ImageFont.ImageFont:
+    fonts_dir = Path("C:/Windows/Fonts")
+    for path in (str(fonts_dir / "segmdl2.ttf"), "segmdl2.ttf", "Segoe MDL2 Assets"):
+        try:
+            return ImageFont.truetype(path, _RESET_FONT_SIZE)
+        except OSError:
+            continue
+    return _load_font(_RESET_FONT_SIZE)
 
 
 def _text_size(label: str, font: ImageFont.ImageFont) -> tuple[int, int]:
@@ -88,8 +103,24 @@ def make_icon(state: State, label: str) -> Image.Image:
             (SIZE // 2, y + (height / 2)),
             line,
             font=font,
-            fill=(0, 0, 0, 255),
+            fill=_BLACK,
             anchor="mm",
         )
         y += height + line_gap
+    return img
+
+
+def make_reset_icon() -> Image.Image:
+    img = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    font = _load_reset_font()
+    left, top, right, bottom = draw.textbbox((0, 0), _RESET_GLYPH, font=font)
+    width = right - left
+    height = bottom - top
+    draw.text(
+        ((SIZE - width) / 2 - left, (SIZE - height) / 2 - top),
+        _RESET_GLYPH,
+        font=font,
+        fill=_RESET_COLOUR,
+    )
     return img

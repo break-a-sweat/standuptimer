@@ -129,6 +129,20 @@ def test_paused_label_layout_is_compact():
     assert layout.text_width >= measured_text_width
 
 
+def test_paused_label_layout_collapses_when_text_is_empty():
+    layout = _compute_paused_label_layout(
+        work_area=(0, 0, 1920, 1040),
+        text_width=0,
+        text_height=18,
+    )
+
+    assert layout.width < PAUSED_LABEL_MIN_WIDTH
+    assert layout.height == PAUSED_LABEL_HEIGHT
+    assert layout.dot_bounds[0] > layout.panel_bounds[0]
+    assert layout.dot_bounds[2] < layout.panel_bounds[2]
+    assert layout.text_width == 0
+
+
 def test_paused_label_layout_keeps_handwriting_text_away_from_window_edges():
     measured_text_width = 140
     measured_text_height = 23
@@ -273,6 +287,29 @@ def test_show_paused_label_uses_bare_mmss_text(monkeypatch):
     )
 
     assert captured["text"] == "12:34"
+    assert captured["parent"] is sentinel_parent
+
+
+def test_show_paused_label_can_render_play_button_only(monkeypatch):
+    captured = {}
+
+    def fake_status_label(*, on_click, text, parent, destroy_before_callback=False):
+        captured["text"] = text
+        captured["on_click"] = on_click
+        captured["parent"] = parent
+        captured["destroy_before_callback"] = destroy_before_callback
+        return object()
+
+    monkeypatch.setattr(overlay, "_show_status_label", fake_status_label)
+
+    sentinel_parent = object()
+    overlay.show_paused_label(
+        on_click=lambda: None,
+        remaining_seconds=None,
+        parent=sentinel_parent,
+    )
+
+    assert captured["text"] == ""
     assert captured["parent"] is sentinel_parent
 
 

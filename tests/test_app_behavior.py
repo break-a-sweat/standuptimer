@@ -12,6 +12,22 @@ class FakeWindow:
         self.destroyed = True
 
 
+class FakeRoot:
+    def __init__(self):
+        self.scheduled = []
+        self.cancelled = []
+
+    def after(self, delay, callback):
+        token = f"after-{len(self.scheduled)}"
+        self.scheduled.append(SimpleNamespace(delay=delay, callback=callback, token=token))
+        if delay == 0:
+            callback()
+        return token
+
+    def after_cancel(self, token):
+        self.cancelled.append(token)
+
+
 def _config(duration_seconds=1500):
     return SimpleNamespace(
         duration_seconds=duration_seconds,
@@ -22,6 +38,20 @@ def _config(duration_seconds=1500):
 
 def _fake_tray():
     return SimpleNamespace(icon=None, title="")
+
+
+def _patch_tray_icons(monkeypatch):
+    monkeypatch.setattr(
+        standup_timer.icon_module,
+        "make_icon",
+        lambda state, label: f"{state.value}:{label}",
+    )
+    monkeypatch.setattr(
+        standup_timer.icon_module,
+        "make_reset_icon",
+        lambda: "reset-prompt",
+        raising=False,
+    )
 
 
 def test_app_initializes_timer_running(monkeypatch):
@@ -139,6 +169,80 @@ def test_pausing_running_timer_shows_paused_label(monkeypatch):
     assert calls[0]["parent"] is app.tk_root
 
 
+def test_running_tray_click_pauses_and_shows_reset_prompt_icon(monkeypatch):
+    calls = []
+    monkeypatch.setattr(standup_timer, "Config", lambda: _config())
+    monkeypatch.setattr(
+        standup_timer.overlay,
+        "show_paused_label",
+        lambda **kwargs: calls.append(kwargs) or FakeWindow(),
+    )
+    _patch_tray_icons(monkeypatch)
+
+    app = standup_timer.StandUpApp()
+    app.tk_root = FakeRoot()
+    app.tray = _fake_tray()
+    app.timer.tick()
+
+    app.on_start_pause(None, None)
+
+    delayed_callbacks = [call for call in app.tk_root.scheduled if call.delay > 0]
+    assert app.timer.state == State.PAUSED
+    assert app.timer.remaining_seconds == 1499
+    assert app.tray.icon == "reset-prompt"
+    assert len(delayed_callbacks) == 1
+    assert calls[0]["remaining_seconds"] == 1499
+
+
+def test_second_tray_click_during_reset_prompt_restarts_full_countdown(monkeypatch):
+    monkeypatch.setattr(standup_timer, "Config", lambda: _config())
+    monkeypatch.setattr(
+        standup_timer.overlay,
+        "show_paused_label",
+        lambda **_kwargs: FakeWindow(),
+    )
+    _patch_tray_icons(monkeypatch)
+
+    app = standup_timer.StandUpApp()
+    app.tk_root = FakeRoot()
+    app.tray = _fake_tray()
+    app.timer.tick()
+    app.timer.tick()
+
+    app.on_start_pause(None, None)
+    delayed_callback = [call for call in app.tk_root.scheduled if call.delay > 0][0]
+    app.on_start_pause(None, None)
+
+    assert app.timer.state == State.RUNNING
+    assert app.timer.remaining_seconds == 1500
+    assert app.tray.icon == "running:25:00"
+    assert app.tk_root.cancelled == [delayed_callback.token]
+
+
+def test_tray_click_after_reset_prompt_expires_resumes_paused_timer(monkeypatch):
+    monkeypatch.setattr(standup_timer, "Config", lambda: _config())
+    monkeypatch.setattr(
+        standup_timer.overlay,
+        "show_paused_label",
+        lambda **_kwargs: FakeWindow(),
+    )
+    _patch_tray_icons(monkeypatch)
+
+    app = standup_timer.StandUpApp()
+    app.tk_root = FakeRoot()
+    app.tray = _fake_tray()
+    app.timer.tick()
+
+    app.on_start_pause(None, None)
+    delayed_callback = [call for call in app.tk_root.scheduled if call.delay > 0][0]
+    delayed_callback.callback()
+    app.on_start_pause(None, None)
+
+    assert app.timer.state == State.RUNNING
+    assert app.timer.remaining_seconds == 1499
+    assert app.tray.icon == "running:24:59"
+
+
 def test_refresh_while_paused_reuses_existing_paused_label(monkeypatch):
     calls = []
     monkeypatch.setattr(standup_timer, "Config", lambda: _config())
@@ -207,7 +311,7 @@ def test_dismissing_finished_overlay_shows_paused_label(monkeypatch):
     assert app.timer.state == State.PAUSED
     assert app.timer.remaining_seconds == 0
     assert len(paused_label_calls) == 1
-    assert paused_label_calls[0]["remaining_seconds"] == 0
+    assert paused_label_calls[0]["remaining_seconds"] is None
 
 
 def test_dismissing_finished_overlay_after_duration_change_still_pauses(monkeypatch):
@@ -240,7 +344,7 @@ def test_dismissing_finished_overlay_after_duration_change_still_pauses(monkeypa
     assert app.timer.state == State.PAUSED
     assert app.timer.remaining_seconds == 0
     assert len(paused_label_calls) == 1
-    assert paused_label_calls[0]["remaining_seconds"] == 0
+    assert paused_label_calls[0]["remaining_seconds"] is None
 
 
 def test_showing_finished_overlay_destroys_existing_paused_label(monkeypatch):

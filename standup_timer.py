@@ -20,6 +20,7 @@ from font_config import CHINESE_HANDWRITING_FONT_FAMILY, load_user_fonts
 from timer import State, TimerState
 
 PRESET_MINUTES = [25, 30, 45, 60]
+RESET_PROMPT_MILLISECONDS = 1500
 CUSTOM_DIALOG_MIN_WIDTH = 520
 CUSTOM_DIALOG_MIN_HEIGHT = 240
 CUSTOM_DIALOG_SCREEN_MARGIN = 32
@@ -118,17 +119,29 @@ class StandUpApp:
         self._current_paused_label: tk.Toplevel | None = None
         self._paused_label_remaining_seconds: int | None = None
         self._last_icon_key: tuple[State, str] | None = None
+        self._reset_prompt_active = False
+        self._reset_prompt_after_id = None
+        self._reset_prompt_generation = 0
 
     # ---------- tray actions ----------
 
     def on_start_pause(self, icon, item):
+        if self._reset_prompt_active:
+            self._cancel_reset_prompt()
+            self.timer.reset()
+            self.timer.start()
+            self._refresh_tray()
+            return
         if self.timer.state == State.RUNNING:
             self.timer.pause()
+            self._arm_reset_prompt()
         else:
+            self._cancel_reset_prompt()
             self.timer.start()
         self._refresh_tray()
 
     def on_reset(self, icon, item):
+        self._cancel_reset_prompt()
         self.timer.reset()
         self._refresh_tray()
 
@@ -162,6 +175,7 @@ class StandUpApp:
 
     def on_quit(self, icon, item):
         self._stop.set()
+        self._cancel_reset_prompt()
         self._destroy_paused_label()
         if self.tray:
             self.tray.stop()
@@ -171,6 +185,7 @@ class StandUpApp:
     # ---------- duration changes ----------
 
     def _change_duration(self, seconds: int):
+        self._cancel_reset_prompt()
         self.config.duration_seconds = seconds
         self.config.save()
         self.timer.change_duration(seconds)
@@ -397,8 +412,41 @@ class StandUpApp:
                 logging.exception("Failed to show tray notification")
 
     def _on_paused_label_click(self):
+        self._cancel_reset_prompt()
         self.timer.start()
         self._sync_paused_label()
+        self._refresh_tray()
+
+    def _arm_reset_prompt(self):
+        self._cancel_reset_prompt()
+        self._reset_prompt_active = True
+        self._reset_prompt_generation += 1
+        generation = self._reset_prompt_generation
+        if self.tk_root is not None and hasattr(self.tk_root, "after"):
+            self._reset_prompt_after_id = self.tk_root.after(
+                RESET_PROMPT_MILLISECONDS,
+                lambda: self._expire_reset_prompt(generation),
+            )
+
+    def _cancel_reset_prompt(self):
+        if (
+            self._reset_prompt_after_id is not None
+            and self.tk_root is not None
+            and hasattr(self.tk_root, "after_cancel")
+        ):
+            try:
+                self.tk_root.after_cancel(self._reset_prompt_after_id)
+            except tk.TclError:
+                logging.exception("Failed to cancel reset prompt")
+        self._reset_prompt_active = False
+        self._reset_prompt_after_id = None
+        self._reset_prompt_generation += 1
+
+    def _expire_reset_prompt(self, generation: int):
+        if generation != self._reset_prompt_generation:
+            return
+        self._reset_prompt_active = False
+        self._reset_prompt_after_id = None
         self._refresh_tray()
 
     def _destroy_paused_label(self):
@@ -418,19 +466,22 @@ class StandUpApp:
             return
         if self.tk_root is None:
             return
+        label_remaining_seconds = (
+            self.timer.remaining_seconds if self.timer.remaining_seconds > 0 else None
+        )
         if (
             self._current_paused_label is not None
-            and self._paused_label_remaining_seconds == self.timer.remaining_seconds
+            and self._paused_label_remaining_seconds == label_remaining_seconds
         ):
             return
         self._destroy_paused_label()
         try:
             self._current_paused_label = overlay.show_paused_label(
                 on_click=self._on_paused_label_click,
-                remaining_seconds=self.timer.remaining_seconds,
+                remaining_seconds=label_remaining_seconds,
                 parent=self.tk_root,
             )
-            self._paused_label_remaining_seconds = self.timer.remaining_seconds
+            self._paused_label_remaining_seconds = label_remaining_seconds
         except tk.TclError:
             logging.exception("Failed to show paused label")
 
@@ -460,6 +511,13 @@ class StandUpApp:
     def _refresh_tray(self):
         self._schedule_paused_label_sync()
         if self.tray is None:
+            return
+        if self._reset_prompt_active:
+            key = (State.PAUSED, "reset-prompt")
+            if key != self._last_icon_key:
+                self.tray.icon = icon_module.make_reset_icon()
+                self._last_icon_key = key
+            self.tray.title = self._tooltip_text()
             return
         state = self.timer.state
         label = self._icon_label()
