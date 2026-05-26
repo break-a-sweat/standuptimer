@@ -2,81 +2,15 @@
 
 StandUp Timer 是一個 Windows 桌面小工具。它會在系統匣倒數時間，時間到時跳出提醒；暫停時會在螢幕左下角顯示一個小提示，按一下就能繼續。
 
-## 最快使用方式
+## 下載使用
 
-需求：Windows。指令會自動檢查 Python；如果沒有 Python，會先嘗試自動安裝。
+需求：Windows。不需要另外安裝 Python。
 
-打開 Windows 的 PowerShell，貼上下面整段指令後按 Enter：
+1. 到 [Releases](https://github.com/break-a-sweat/standuptimer/releases) 下載最新版的 `StandUpTimer.exe`。
+2. 雙擊 `StandUpTimer.exe` 啟動。
+3. 之後要再打開，雙擊同一個 `StandUpTimer.exe` 即可。
 
-```powershell
-$ErrorActionPreference = "Stop"
-
-function Get-UsablePython {
-    $candidate = Get-Command py -ErrorAction SilentlyContinue
-    if ($candidate) {
-        & $candidate.Source -3 -c "import sys; raise SystemExit(sys.version_info < (3, 10))"
-        if ($LASTEXITCODE -eq 0) { return @{ Path = $candidate.Source; Launcher = $true } }
-    }
-
-    $candidate = Get-Command python -ErrorAction SilentlyContinue
-    if ($candidate) {
-        & $candidate.Source -c "import sys; raise SystemExit(sys.version_info < (3, 10))"
-        if ($LASTEXITCODE -eq 0) { return @{ Path = $candidate.Source; Launcher = $false } }
-    }
-
-    return $null
-}
-
-$python = Get-UsablePython
-if (-not $python) {
-    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Start-Process "https://www.python.org/downloads/windows/"
-        throw "這台電腦沒有 Python 3.10+，也沒有 winget；請先安裝 Python 後再執行一次。"
-    }
-
-    winget install --id Python.Python.3.12 -e --scope user --accept-package-agreements --accept-source-agreements
-    $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
-    $python = Get-UsablePython
-    if (-not $python) { throw "Python 已安裝。請重新打開 PowerShell，再執行一次這段指令。" }
-}
-
-$app = "$env:USERPROFILE\standuptimer"
-$zip = "$env:TEMP\standuptimer.zip"
-$tmp = "$env:TEMP\standuptimer-main"
-
-Remove-Item $zip -Force -ErrorAction SilentlyContinue
-Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
-Invoke-WebRequest "https://github.com/break-a-sweat/standuptimer/archive/refs/heads/main.zip" -OutFile $zip
-Expand-Archive $zip -DestinationPath $env:TEMP -Force
-if (Test-Path $app) { Remove-Item $app -Recurse -Force }
-Move-Item $tmp $app
-
-if ($python["Launcher"]) {
-    & $python["Path"] -3 -m pip install --user -r "$app\requirements.txt"
-} else {
-    & $python["Path"] -m pip install --user -r "$app\requirements.txt"
-}
-
-$pythonw = Get-Command pyw -ErrorAction SilentlyContinue
-if ($pythonw) {
-    Start-Process -FilePath $pythonw.Source -ArgumentList @("-3", "$app\start.pyw")
-} else {
-    $pythonw = Get-Command pythonw -ErrorAction SilentlyContinue
-    if ($pythonw) {
-        Start-Process -FilePath $pythonw.Source -ArgumentList @("$app\start.pyw")
-    } else {
-        Start-Process -FilePath $python["Path"] -ArgumentList @("$app\start.pyw") -WindowStyle Hidden
-    }
-}
-```
-
-這段指令會自動準備 Python、下載此專案、安裝需要的套件，然後啟動 StandUp Timer。之後要再打開，可以雙擊：
-
-```text
-%USERPROFILE%\standuptimer\start.pyw
-```
-
-如果程式已經在執行，請先從系統匣右鍵退出，再重新執行上面的指令。
+如果程式已經在執行，請先從系統匣右鍵退出，再重新啟動。
 
 ## 怎麼使用
 
@@ -100,7 +34,8 @@ if ($pythonw) {
 ```powershell
 python -m venv .venv
 .venv\Scripts\activate
-pip install -r requirements.txt
+python -m pip install --upgrade pip
+python -m pip install -r requirements-dev.txt
 ```
 
 啟動：
@@ -112,8 +47,30 @@ python standup_timer.py
 測試：
 
 ```powershell
-pytest -v
+pytest -q
 ```
+
+本機打包 Windows 執行檔：
+
+```powershell
+pyinstaller --clean --noconfirm StandUpTimer.spec
+```
+
+完成後執行檔會在：
+
+```text
+dist\StandUpTimer.exe
+```
+
+建立 GitHub Release，例如 `v0.1.0`：
+
+```powershell
+git tag v0.1.0
+git push origin main v0.1.0
+gh release create v0.1.0 dist\StandUpTimer.exe --title "v0.1.0" --notes "Windows executable release."
+```
+
+如果沒有 GitHub CLI，也可以在 GitHub 的 Releases 頁面手動建立版本，並上傳 `dist\StandUpTimer.exe`。
 
 ## 設定與記錄
 
