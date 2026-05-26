@@ -12,6 +12,8 @@ StandUp Timer 是一個 Windows 桌面小工具。它會在系統匣倒數時間
 
 如果程式已經在執行，請先從系統匣右鍵退出，再重新啟動。
 
+`StandUpTimer.exe` 已內建 LXGW WenKai TC Regular 中文字體，別人的電腦不用另外安裝字體也能看到一致的中文提醒外觀。字體依 SIL Open Font License 1.1 發布，授權檔在 `assets/fonts/OFL.txt`。
+
 ## 怎麼使用
 
 - 看 Windows 右下角系統匣的 StandUp Timer 圖示。

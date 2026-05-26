@@ -24,3 +24,9 @@ def test_dev_requirements_extend_runtime_dependencies():
     assert "-r requirements.txt" in requirements
     assert "pytest==8.3.3" in requirements
     assert any(line.startswith("pyinstaller==") for line in requirements)
+
+
+def test_pyinstaller_spec_bundles_font_assets():
+    spec = (ROOT / "StandUpTimer.spec").read_text(encoding="utf-8")
+
+    assert '("assets/fonts", "assets/fonts")' in spec

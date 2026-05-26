@@ -5,7 +5,7 @@ a = Analysis(
     ["start.pyw"],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[("assets/fonts", "assets/fonts")],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
