@@ -4,15 +4,73 @@ StandUp Timer 是一個 Windows 桌面小工具。它會在系統匣倒數時間
 
 ## 最快使用方式
 
-需求：Windows，並且已安裝 Python 3.10 或更新版本。若還沒有 Python，先到 <https://www.python.org/downloads/windows/> 安裝；安裝時建議勾選 `Add python.exe to PATH`。
+需求：Windows。指令會自動檢查 Python；如果沒有 Python，會先嘗試自動安裝。
 
 打開 Windows 的 PowerShell，貼上下面整段指令後按 Enter：
 
 ```powershell
-$ErrorActionPreference = "Stop"; $app = "$env:USERPROFILE\standuptimer"; $zip = "$env:TEMP\standuptimer.zip"; $tmp = "$env:TEMP\standuptimer-main"; Remove-Item $zip -Force -ErrorAction SilentlyContinue; Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue; Invoke-WebRequest "https://github.com/break-a-sweat/standuptimer/archive/refs/heads/main.zip" -OutFile $zip; Expand-Archive $zip -DestinationPath $env:TEMP -Force; if (Test-Path $app) { Remove-Item $app -Recurse -Force }; Move-Item $tmp $app; py -3 -m pip install --user -r "$app\requirements.txt"; Start-Process -FilePath "pyw" -ArgumentList @("-3", "$app\start.pyw")
+$ErrorActionPreference = "Stop"
+
+function Get-UsablePython {
+    $candidate = Get-Command py -ErrorAction SilentlyContinue
+    if ($candidate) {
+        & $candidate.Source -3 -c "import sys; raise SystemExit(sys.version_info < (3, 10))"
+        if ($LASTEXITCODE -eq 0) { return @{ Path = $candidate.Source; Launcher = $true } }
+    }
+
+    $candidate = Get-Command python -ErrorAction SilentlyContinue
+    if ($candidate) {
+        & $candidate.Source -c "import sys; raise SystemExit(sys.version_info < (3, 10))"
+        if ($LASTEXITCODE -eq 0) { return @{ Path = $candidate.Source; Launcher = $false } }
+    }
+
+    return $null
+}
+
+$python = Get-UsablePython
+if (-not $python) {
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Start-Process "https://www.python.org/downloads/windows/"
+        throw "這台電腦沒有 Python 3.10+，也沒有 winget；請先安裝 Python 後再執行一次。"
+    }
+
+    winget install --id Python.Python.3.12 -e --scope user --accept-package-agreements --accept-source-agreements
+    $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
+    $python = Get-UsablePython
+    if (-not $python) { throw "Python 已安裝。請重新打開 PowerShell，再執行一次這段指令。" }
+}
+
+$app = "$env:USERPROFILE\standuptimer"
+$zip = "$env:TEMP\standuptimer.zip"
+$tmp = "$env:TEMP\standuptimer-main"
+
+Remove-Item $zip -Force -ErrorAction SilentlyContinue
+Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+Invoke-WebRequest "https://github.com/break-a-sweat/standuptimer/archive/refs/heads/main.zip" -OutFile $zip
+Expand-Archive $zip -DestinationPath $env:TEMP -Force
+if (Test-Path $app) { Remove-Item $app -Recurse -Force }
+Move-Item $tmp $app
+
+if ($python["Launcher"]) {
+    & $python["Path"] -3 -m pip install --user -r "$app\requirements.txt"
+} else {
+    & $python["Path"] -m pip install --user -r "$app\requirements.txt"
+}
+
+$pythonw = Get-Command pyw -ErrorAction SilentlyContinue
+if ($pythonw) {
+    Start-Process -FilePath $pythonw.Source -ArgumentList @("-3", "$app\start.pyw")
+} else {
+    $pythonw = Get-Command pythonw -ErrorAction SilentlyContinue
+    if ($pythonw) {
+        Start-Process -FilePath $pythonw.Source -ArgumentList @("$app\start.pyw")
+    } else {
+        Start-Process -FilePath $python["Path"] -ArgumentList @("$app\start.pyw") -WindowStyle Hidden
+    }
+}
 ```
 
-這段指令會自動下載此專案、安裝需要的套件，然後啟動 StandUp Timer。之後要再打開，可以雙擊：
+這段指令會自動準備 Python、下載此專案、安裝需要的套件，然後啟動 StandUp Timer。之後要再打開，可以雙擊：
 
 ```text
 %USERPROFILE%\standuptimer\start.pyw
