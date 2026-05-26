@@ -76,6 +76,12 @@ class PausedLabelLayout:
     text_width: int
 
 
+@dataclass(frozen=True)
+class TaskbarInfo:
+    rect: tuple[int, int, int, int]
+    auto_hide: bool
+
+
 def _get_work_area() -> tuple[int, int, int, int]:
     """Return (left, top, right, bottom) of primary monitor work area in pixels."""
     SPI_GETWORKAREA = 0x0030
@@ -84,16 +90,103 @@ def _get_work_area() -> tuple[int, int, int, int]:
     return rect.left, rect.top, rect.right, rect.bottom
 
 
+def _get_primary_screen_bounds() -> tuple[int, int, int, int]:
+    """Return primary screen bounds in the same DPI coordinate space as Tk windows."""
+    SM_CXSCREEN = 0
+    SM_CYSCREEN = 1
+    return (
+        0,
+        0,
+        ctypes.windll.user32.GetSystemMetrics(SM_CXSCREEN),
+        ctypes.windll.user32.GetSystemMetrics(SM_CYSCREEN),
+    )
+
+
+def _get_taskbar_info() -> TaskbarInfo | None:
+    try:
+        user32 = ctypes.windll.user32
+        hwnd = user32.FindWindowW("Shell_TrayWnd", None)
+        if not hwnd:
+            return None
+
+        rect = ctypes.wintypes.RECT()
+        if not user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+            return None
+
+        class APPBARDATA(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", ctypes.wintypes.DWORD),
+                ("hWnd", ctypes.wintypes.HWND),
+                ("uCallbackMessage", ctypes.wintypes.UINT),
+                ("uEdge", ctypes.wintypes.UINT),
+                ("rc", ctypes.wintypes.RECT),
+                ("lParam", ctypes.wintypes.LPARAM),
+            ]
+
+        ABM_GETSTATE = 0x00000004
+        ABS_AUTOHIDE = 0x0000001
+        appbar_data = APPBARDATA()
+        appbar_data.cbSize = ctypes.sizeof(APPBARDATA)
+        appbar_data.hWnd = hwnd
+        state = ctypes.windll.shell32.SHAppBarMessage(ABM_GETSTATE, ctypes.byref(appbar_data))
+
+        return TaskbarInfo(
+            rect=(rect.left, rect.top, rect.right, rect.bottom),
+            auto_hide=bool(state & ABS_AUTOHIDE),
+        )
+    except (AttributeError, OSError):
+        return None
+
+
+def _is_bottom_taskbar(
+    screen_bounds: tuple[int, int, int, int],
+    taskbar_rect: tuple[int, int, int, int],
+) -> bool:
+    screen_left, _, screen_right, screen_bottom = screen_bounds
+    taskbar_left, taskbar_top, taskbar_right, taskbar_bottom = taskbar_rect
+    taskbar_height = taskbar_bottom - taskbar_top
+    if taskbar_height <= 0:
+        return False
+
+    horizontal_overlap = min(taskbar_right, screen_right) - max(taskbar_left, screen_left)
+    screen_width = max(1, screen_right - screen_left)
+    if horizontal_overlap < screen_width // 2:
+        return False
+
+    return taskbar_top >= screen_bottom - taskbar_height and taskbar_bottom >= screen_bottom - 1
+
+
+def _effective_work_area(
+    work_area: tuple[int, int, int, int],
+    screen_bounds: tuple[int, int, int, int],
+    taskbar_info: TaskbarInfo | None,
+) -> tuple[int, int, int, int]:
+    if (
+        taskbar_info is None
+        or not taskbar_info.auto_hide
+        or not _is_bottom_taskbar(screen_bounds, taskbar_info.rect)
+    ):
+        return work_area
+
+    left, top, right, bottom = work_area
+    _, screen_top, _, screen_bottom = screen_bounds
+    taskbar_top, taskbar_bottom = taskbar_info.rect[1], taskbar_info.rect[3]
+    taskbar_height = max(0, taskbar_bottom - taskbar_top)
+    adjusted_bottom = max(screen_top, screen_bottom - taskbar_height)
+    return left, top, right, min(bottom, adjusted_bottom)
+
+
 def _compute_position(
     work_area: tuple[int, int, int, int],
     window_width: int = WINDOW_WIDTH,
     window_height: int = WINDOW_HEIGHT,
+    bottom_margin: int = MARGIN,
 ) -> tuple[int, int]:
-    """Bottom-left of work area, with margin."""
+    """Bottom-left of work area, with configurable bottom margin."""
     left, top, right, bottom = work_area
     del window_width, right
     x = left + MARGIN
-    y = max(top + MARGIN, bottom - window_height - MARGIN)
+    y = max(top + MARGIN, bottom - window_height - bottom_margin)
     return x, y
 
 
@@ -299,10 +392,14 @@ def _show_status_label(
         pass
     win.configure(bg=TRANSPARENT_COLOUR)
 
-    work_area = _get_work_area()
+    work_area = _effective_work_area(
+        _get_work_area(),
+        _get_primary_screen_bounds(),
+        _get_taskbar_info(),
+    )
     text_width, text_height = _font_measurements(win, PAUSED_LABEL_FONT, text)
     layout = _compute_paused_label_layout(work_area, text_width, text_height)
-    x, y = _compute_position(work_area, layout.width, layout.height)
+    x, y = _compute_position(work_area, layout.width, layout.height, bottom_margin=0)
     win.geometry(f"{layout.width}x{layout.height}+{x}+{y}")
 
     canvas = tk.Canvas(

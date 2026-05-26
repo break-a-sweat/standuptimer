@@ -313,6 +313,150 @@ def test_show_paused_label_can_render_play_button_only(monkeypatch):
     assert captured["parent"] is sentinel_parent
 
 
+def _show_paused_label_geometry(
+    monkeypatch,
+    *,
+    work_area,
+    screen_bounds,
+    taskbar_info,
+    text_width=60,
+    text_height=18,
+):
+    class FakeWindow:
+        def __init__(self):
+            self.geometry_calls = []
+
+        def overrideredirect(self, *_args):
+            return None
+
+        def attributes(self, *_args):
+            return None
+
+        def configure(self, **_kwargs):
+            return None
+
+        def geometry(self, value):
+            self.geometry_calls.append(value)
+
+        def bind(self, *_args):
+            return None
+
+        def winfo_exists(self):
+            return True
+
+        def destroy(self):
+            return None
+
+    class FakeCanvas:
+        def __init__(self, *_args, **_kwargs):
+            return None
+
+        def pack(self):
+            return None
+
+        def create_polygon(self, *_args, **_kwargs):
+            return None
+
+        def create_oval(self, *_args, **_kwargs):
+            return None
+
+        def create_text(self, *_args, **_kwargs):
+            return None
+
+        def bind(self, *_args):
+            return None
+
+    fake_window = FakeWindow()
+
+    monkeypatch.setattr(overlay.tk, "Toplevel", lambda _parent: fake_window)
+    monkeypatch.setattr(overlay.tk, "Canvas", FakeCanvas)
+    monkeypatch.setattr(overlay, "_get_work_area", lambda: work_area)
+    monkeypatch.setattr(overlay, "_get_primary_screen_bounds", lambda: screen_bounds, raising=False)
+    monkeypatch.setattr(overlay, "_get_taskbar_info", lambda: taskbar_info, raising=False)
+    monkeypatch.setattr(overlay, "_font_measurements", lambda *_args: (text_width, text_height))
+
+    overlay.show_paused_label(
+        on_click=lambda: None,
+        remaining_seconds=754,
+        parent=object(),
+    )
+
+    return fake_window.geometry_calls
+
+
+def test_show_paused_label_touches_work_area_bottom(monkeypatch):
+    work_area = (0, 0, 1920, 1040)
+    text_width = 60
+    text_height = 18
+    expected_layout = _compute_paused_label_layout(work_area, text_width, text_height)
+    expected_y = work_area[3] - expected_layout.height
+
+    geometry_calls = _show_paused_label_geometry(
+        monkeypatch,
+        work_area=work_area,
+        screen_bounds=(0, 0, 1920, 1080),
+        taskbar_info=None,
+        text_width=text_width,
+        text_height=text_height,
+    )
+
+    assert geometry_calls == [
+        f"{expected_layout.width}x{expected_layout.height}+{MARGIN}+{expected_y}"
+    ]
+
+
+def test_show_paused_label_sits_above_auto_hidden_bottom_taskbar(monkeypatch):
+    work_area = (0, 0, 1920, 1080)
+    effective_work_area = (0, 0, 1920, 996)
+    text_width = 60
+    text_height = 18
+    expected_layout = _compute_paused_label_layout(effective_work_area, text_width, text_height)
+    expected_y = effective_work_area[3] - expected_layout.height
+
+    geometry_calls = _show_paused_label_geometry(
+        monkeypatch,
+        work_area=work_area,
+        screen_bounds=(0, 0, 1920, 1080),
+        taskbar_info=overlay.TaskbarInfo(
+            rect=(0, 1078, 1920, 1162),
+            auto_hide=True,
+        ),
+        text_width=text_width,
+        text_height=text_height,
+    )
+
+    assert geometry_calls == [
+        f"{expected_layout.width}x{expected_layout.height}+{MARGIN}+{expected_y}"
+    ]
+
+
+def test_effective_work_area_reserves_auto_hidden_bottom_taskbar_height():
+    work_area = (0, 0, 1920, 1080)
+    screen_bounds = (0, 0, 1920, 1080)
+    taskbar_info = overlay.TaskbarInfo(
+        rect=(0, 1078, 1920, 1162),
+        auto_hide=True,
+    )
+
+    assert overlay._effective_work_area(work_area, screen_bounds, taskbar_info) == (
+        0,
+        0,
+        1920,
+        996,
+    )
+
+
+def test_effective_work_area_keeps_normal_work_area_when_taskbar_is_not_auto_hidden():
+    work_area = (0, 0, 1920, 996)
+    screen_bounds = (0, 0, 1920, 1080)
+    taskbar_info = overlay.TaskbarInfo(
+        rect=(0, 996, 1920, 1080),
+        auto_hide=False,
+    )
+
+    assert overlay._effective_work_area(work_area, screen_bounds, taskbar_info) == work_area
+
+
 def test_play_triangle_points_fit_inside_circle_and_nudge_right():
     dot_bounds = (10, 10, 34, 34)  # 24x24 circle at (10,10)
     points = _play_triangle_points(dot_bounds)
